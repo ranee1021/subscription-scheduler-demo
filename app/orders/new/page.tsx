@@ -221,8 +221,8 @@ export default function NewOrderPage() {
     );
   };
 
-  // 오늘 기준 6주차 날짜 배열 생성
-  const getCalendarWeeks = (): Date[] => {
+  // 오늘 기준 6주차 날짜 배열 생성 (마지막 배송일이 6주차 안에 없으면 추가 주차 표시)
+  const getCalendarWeeks = (lastDeliveryDate: Date | null): Date[] => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -234,9 +234,32 @@ export default function NewOrderPage() {
     firstMonday.setDate(today.getDate() + daysToMonday);
     firstMonday.setHours(0, 0, 0, 0);
     
-    // 6주치 날짜 생성 (42일 = 6주 * 7일)
+    // 기본 6주치 날짜 생성 (42일 = 6주 * 7일)
+    let weeksToShow = 6;
+    
+    // 마지막 배송일이 6주차 안에 없으면 추가 주차 계산
+    if (lastDeliveryDate) {
+      const lastDeliveryDateOnly = new Date(lastDeliveryDate.getFullYear(), lastDeliveryDate.getMonth(), lastDeliveryDate.getDate());
+      const lastDayOf6Weeks = new Date(firstMonday);
+      lastDayOf6Weeks.setDate(firstMonday.getDate() + 41); // 6주차의 마지막 날 (42일째, 인덱스 41)
+      
+      // 마지막 배송일이 6주차를 넘어가면 추가 주차 계산
+      if (lastDeliveryDateOnly > lastDayOf6Weeks) {
+        // 마지막 배송일이 포함된 주의 월요일 찾기
+        const lastDeliveryDayOfWeek = lastDeliveryDateOnly.getDay();
+        const daysToLastMonday = lastDeliveryDayOfWeek === 0 ? -6 : 1 - lastDeliveryDayOfWeek;
+        const lastDeliveryMonday = new Date(lastDeliveryDateOnly);
+        lastDeliveryMonday.setDate(lastDeliveryDateOnly.getDate() + daysToLastMonday);
+        
+        // 필요한 주차 수 계산
+        const daysDiff = Math.ceil((lastDeliveryMonday.getTime() - firstMonday.getTime()) / (1000 * 60 * 60 * 24));
+        weeksToShow = Math.ceil(daysDiff / 7) + 1; // +1은 마지막 주차 포함
+      }
+    }
+    
     const calendarDays: Date[] = [];
-    for (let i = 0; i < 42; i++) {
+    const totalDays = weeksToShow * 7;
+    for (let i = 0; i < totalDays; i++) {
       const date = new Date(firstMonday);
       date.setDate(firstMonday.getDate() + i);
       calendarDays.push(date);
@@ -265,7 +288,7 @@ export default function NewOrderPage() {
     return schedule ? schedule.sequence : null;
   };
 
-  // 날짜 선택 가능 여부 확인 (오늘부터 2일 뒤부터, 일요일 제외)
+  // 날짜 선택 가능 여부 확인 (오늘부터 2일 뒤부터, 이번주 포함 2주차까지만, 일요일 제외)
   const isDateSelectable = (date: Date): boolean => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -273,14 +296,19 @@ export default function NewOrderPage() {
     minDate.setDate(today.getDate() + 2);
     minDate.setHours(0, 0, 0, 0);
     
+    // 이번주 포함 2주차까지 (총 3주차) = 오늘부터 21일 후까지
+    const maxDate = new Date(today);
+    maxDate.setDate(today.getDate() + 21);
+    maxDate.setHours(23, 59, 59, 999);
+    
     const checkDate = new Date(date);
     checkDate.setHours(0, 0, 0, 0);
     
     // 일요일(0)은 선택 불가
     if (checkDate.getDay() === 0) return false;
     
-    // 오늘부터 2일 뒤부터 선택 가능
-    return checkDate >= minDate;
+    // 오늘부터 2일 뒤부터, 이번주 포함 2주차까지만 선택 가능
+    return checkDate >= minDate && checkDate <= maxDate;
   };
 
   const handleDateClick = (date: Date) => {
@@ -303,11 +331,20 @@ export default function NewOrderPage() {
     : [];
 
   // 캘린더 렌더링
-  const calendarDays = getCalendarWeeks();
+  const calendarDays = getCalendarWeeks(lastDeliveryDate);
   const weekDays = ["일", "월", "화", "수", "목", "금", "토"];
   
   // 첫 번째 날짜의 요일 확인 (0=일요일, 1=월요일, ..., 6=토요일)
   const firstDayOfWeek = calendarDays.length > 0 ? calendarDays[0].getDay() : 0;
+  
+  // 첫 배송일과 마지막 배송일 확인
+  const firstDeliveryDate = schedules.length > 0 ? schedules[0].originalDeliveryDate : null;
+  const isFirstDeliveryDate = (date: Date): boolean => {
+    return firstDeliveryDate ? isSameDate(date, firstDeliveryDate) : false;
+  };
+  const isLastDeliveryDate = (date: Date): boolean => {
+    return lastDeliveryDate ? isSameDate(date, lastDeliveryDate) : false;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
@@ -435,32 +472,51 @@ export default function NewOrderPage() {
                   const isToday = isSameDate(date, new Date());
                   const isSelectable = isDateSelectable(date);
                   const sequence = getDeliverySequence(date);
+                  const isFirstDelivery = isFirstDeliveryDate(date);
+                  const isLastDelivery = isLastDeliveryDate(date);
 
                   return (
-                    <button
-                      key={index}
-                      type="button"
-                      onClick={() => handleDateClick(date)}
-                      disabled={!isSelectable}
-                      className={`aspect-square rounded-lg text-sm transition relative ${
-                        !isSelectable
-                          ? "text-gray-300 cursor-not-allowed"
-                          : isSelected
-                          ? "bg-indigo-600 text-white font-semibold"
-                          : isDelivery
-                          ? "bg-indigo-100 text-indigo-700 font-medium"
-                          : isToday
-                          ? "bg-gray-100 text-gray-900 font-medium"
-                          : "text-gray-700 hover:bg-gray-50"
-                      }`}
-                    >
-                      <div>{date.getDate()}</div>
-                      {isDelivery && sequence && (
-                        <div className="absolute top-0.5 right-0.5 text-[10px] font-bold bg-indigo-200 text-indigo-800 rounded px-1">
-                          {sequence}차
+                    <div key={index} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => handleDateClick(date)}
+                        disabled={!isSelectable}
+                        className={`aspect-square w-full rounded-lg text-sm transition ${
+                          !isSelectable
+                            ? "text-gray-300 cursor-not-allowed"
+                            : isSelected
+                            ? "bg-indigo-600 text-white font-semibold"
+                            : isDelivery
+                            ? "bg-indigo-100 text-indigo-700 font-medium"
+                            : isToday
+                            ? "bg-gray-100 text-gray-900 font-medium"
+                            : "text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        <div>{date.getDate()}</div>
+                        {isDelivery && sequence && (
+                          <div className="absolute top-0.5 right-0.5 text-[10px] font-bold bg-indigo-200 text-indigo-800 rounded px-1">
+                            {sequence}차
+                          </div>
+                        )}
+                      </button>
+                      {isFirstDelivery && (
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-10">
+                          <div className="bg-indigo-600 text-white text-[10px] font-medium px-2 py-1 rounded shadow-lg whitespace-nowrap">
+                            식단 시작일
+                          </div>
+                          <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-indigo-600"></div>
                         </div>
                       )}
-                    </button>
+                      {isLastDelivery && (
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-10">
+                          <div className="bg-indigo-600 text-white text-[10px] font-medium px-2 py-1 rounded shadow-lg whitespace-nowrap">
+                            식단 종료일
+                          </div>
+                          <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-indigo-600"></div>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
