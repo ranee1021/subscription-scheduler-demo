@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
 import { DeliverySchedule, DeliveryFrequency } from "../../../src/domain/schedule/types";
 import { generateDeliverySchedules } from "../../../src/domain/schedule/generateSchedule";
 import { PaymentAttempt, generatePaymentAttempts } from "../../../src/domain/payment/generatePayment";
@@ -13,8 +12,16 @@ import { Product } from "../../../src/domain/product/types";
 type PeriodOption = "1주" | "2주" | "4주";
 
 export default function NewOrderPage() {
-  const searchParams = useSearchParams();
-  const productId = searchParams.get("productId");
+  const [productId, setProductId] = useState<string | null>(null);
+  
+  // 클라이언트 사이드에서 URL 파라미터 읽기 (useSearchParams 대신)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get("productId");
+      setProductId(id);
+    }
+  }, []);
   
   // 상품 정보 가져오기
   const product = useMemo(() => {
