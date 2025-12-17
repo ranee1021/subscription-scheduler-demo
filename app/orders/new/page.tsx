@@ -1,35 +1,57 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { DeliverySchedule, DeliveryFrequency } from "../../../src/domain/schedule/types";
 import { generateDeliverySchedules } from "../../../src/domain/schedule/generateSchedule";
 import { PaymentAttempt, generatePaymentAttempts } from "../../../src/domain/payment/generatePayment";
 import { Order } from "../../../src/domain/order/types";
 import { orderStore } from "../../../src/domain/order/orderStore";
+import { productStore } from "../../../src/domain/product/productStore";
+import { Product } from "../../../src/domain/product/types";
 
 type PeriodOption = "1주" | "2주" | "4주";
 
-interface PeriodPrice {
-  period: PeriodOption;
-  price: number;
-}
-
-const PERIOD_OPTIONS: PeriodPrice[] = [
-  { period: "1주", price: 65940 },
-  { period: "2주", price: 120080 },
-  { period: "4주", price: 244720 },
-];
-
 export default function NewOrderPage() {
-  const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>("1주");
+  const searchParams = useSearchParams();
+  const productId = searchParams.get("productId");
+  
+  // 상품 정보 가져오기
+  const product = useMemo(() => {
+    if (productId) {
+      return productStore.getProductById(productId);
+    }
+    // 기본값: 첫 번째 상품 사용
+    const allProducts = productStore.getAllProducts();
+    return allProducts.length > 0 ? allProducts[0] : null;
+  }, [productId]);
+
+  // 기간 옵션 (상품에서 가져오기)
+  const periodOptions = useMemo(() => {
+    return product?.periodOptions || [];
+  }, [product]);
+
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>(
+    periodOptions.length > 0 ? periodOptions[0].period : "1주"
+  );
   const [deliveryFrequency, setDeliveryFrequency] = useState<DeliveryFrequency>("주3회");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
 
+  // 선택된 기간이 유효한지 확인하고 없으면 첫 번째 옵션으로 설정
+  useEffect(() => {
+    if (periodOptions.length > 0) {
+      const isValidPeriod = periodOptions.some((opt) => opt.period === selectedPeriod);
+      if (!isValidPeriod) {
+        setSelectedPeriod(periodOptions[0].period);
+      }
+    }
+  }, [periodOptions, selectedPeriod]);
+
   // 선택된 기간의 가격
   const selectedPrice = useMemo(() => {
-    return PERIOD_OPTIONS.find((opt) => opt.period === selectedPeriod)?.price || 0;
-  }, [selectedPeriod]);
+    return periodOptions.find((opt) => opt.period === selectedPeriod)?.price || 0;
+  }, [selectedPeriod, periodOptions]);
 
   // 1일 식단(2팩) 단가 계산
   const dailyPrice = useMemo(() => {
@@ -244,34 +266,45 @@ export default function NewOrderPage() {
           <h2 className="mb-4 text-lg font-semibold text-gray-900">
             상품 정보
           </h2>
-          <div className="mb-6">
-            <p className="text-xl font-bold text-gray-900">옴뇸뇸 중기</p>
-          </div>
+          {product ? (
+            <>
+              <div className="mb-6">
+                <p className="text-xl font-bold text-gray-900">{product.name}</p>
+                {product.description && (
+                  <p className="mt-1 text-sm text-gray-600">{product.description}</p>
+                )}
+              </div>
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              이용기간 선택
-            </label>
-            <div className="grid grid-cols-3 gap-3">
-              {PERIOD_OPTIONS.map((option) => (
-                <button
-                  key={option.period}
-                  type="button"
-                  onClick={() => setSelectedPeriod(option.period)}
-                  className={`rounded-lg border-2 px-4 py-3 text-sm font-semibold transition ${
-                    selectedPeriod === option.period
-                      ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                      : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
-                  }`}
-                >
-                  <div>{option.period}</div>
-                  <div className="mt-1 text-base">
-                    {option.price.toLocaleString()}원
-                  </div>
-                </button>
-              ))}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  이용기간 선택
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  {periodOptions.map((option) => (
+                    <button
+                      key={option.period}
+                      type="button"
+                      onClick={() => setSelectedPeriod(option.period)}
+                      className={`rounded-lg border-2 px-4 py-3 text-sm font-semibold transition ${
+                        selectedPeriod === option.period
+                          ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                          : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                      }`}
+                    >
+                      <div>{option.period}</div>
+                      <div className="mt-1 text-base">
+                        {option.price.toLocaleString()}원
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="mb-6 text-center text-gray-400">
+              상품 정보를 불러올 수 없습니다.
             </div>
-          </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4 rounded-lg bg-gray-50 p-4">
             <div>
