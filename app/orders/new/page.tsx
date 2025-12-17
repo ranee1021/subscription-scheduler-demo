@@ -59,102 +59,46 @@ export default function NewOrderPage() {
       const totalDeliveries = weeks * 3;
       const firstDayOfWeek = firstDate.getDay();
       
-      // 각 요일별 다음 배송일 패턴 정의
-      // [1차는 첫 배송일, 2차와 3차의 상대적 날짜 오프셋]
-      let patternOffsets: number[];
+      // 첫 배송일의 요일을 기준으로 요일 세트 결정
+      // 월(1), 수(3), 금(5) → 월/수/금 세트
+      // 화(2), 목(4), 토(6) → 화/목/토 세트
+      const allowedDays: number[] = 
+        firstDayOfWeek === 1 || firstDayOfWeek === 3 || firstDayOfWeek === 5
+          ? [1, 3, 5] // 월/수/금 세트
+          : [2, 4, 6]; // 화/목/토 세트
       
-      switch (firstDayOfWeek) {
-        case 1: // 월: 월-수-금 (같은 주)
-          patternOffsets = [0, 2, 4]; // 월(0), 수(+2), 금(+4)
-          break;
-        case 2: // 화: 화-목-토 (같은 주)
-          patternOffsets = [0, 2, 4]; // 화(0), 목(+2), 토(+4)
-          break;
-        case 3: // 수: 수-금-월(차주)
-          patternOffsets = [0, 2, 5]; // 수(0), 금(+2), 다음주 월(+5)
-          break;
-        case 4: // 목: 목-토-화(차주)
-          patternOffsets = [0, 2, 5]; // 목(0), 토(+2), 다음주 화(+5)
-          break;
-        case 5: // 금: 금-월(차주)-수(차주)
-          patternOffsets = [0, 3, 5]; // 금(0), 다음주 월(+3), 다음주 수(+5)
-          break;
-        case 6: // 토: 토-화(차주)-목(차주)
-          patternOffsets = [0, 3, 5]; // 토(0), 다음주 화(+3), 다음주 목(+5)
-          break;
-        default: // 일요일은 선택 불가
-          patternOffsets = [0, 2, 4];
-      }
+      // 첫 배송일부터 하루씩 증가시키면서 선택된 요일 세트에 해당하는 날짜만 순차적으로 채택
+      let currentDate = new Date(firstDate);
+      currentDate.setHours(0, 0, 0, 0);
       
-      // 첫 배송일 추가 (1차)
-      const firstProductionDate = new Date(firstDate);
-      firstProductionDate.setDate(firstDate.getDate() - 1);
-      schedules.push({
-        sequence: sequence++,
-        originalDeliveryDate: new Date(firstDate),
-        productionDate: firstProductionDate,
-      });
+      // 이미 추가된 날짜를 추적하여 중복 방지
+      const addedDates = new Set<string>();
       
-      // 2차와 3차 생성
-      for (let i = 1; i < 3 && schedules.length < totalDeliveries; i++) {
-        const deliveryDate = new Date(firstDate);
-        deliveryDate.setDate(firstDate.getDate() + patternOffsets[i]);
+      while (schedules.length < totalDeliveries) {
+        const dayOfWeek = currentDate.getDay();
         
-        const productionDate = new Date(deliveryDate);
-        productionDate.setDate(deliveryDate.getDate() - 1);
-        
-        schedules.push({
-          sequence: sequence++,
-          originalDeliveryDate: deliveryDate,
-          productionDate: productionDate,
-        });
-      }
-      
-      // 나머지 주차들 생성 (2주, 4주인 경우)
-      if (weeks > 1) {
-        // 다음 주부터 시작
-        const nextWeekStartDate = new Date(firstDate);
-        nextWeekStartDate.setDate(firstDate.getDate() + 7);
-        
-        // 다음 주의 패턴 시작 요일 결정
-        let nextWeekPatternStart: number;
-        if (firstDayOfWeek === 1 || firstDayOfWeek === 3 || firstDayOfWeek === 5) {
-          // 월-수-금 패턴
-          nextWeekPatternStart = 1; // 월요일
-        } else {
-          // 화-목-토 패턴
-          nextWeekPatternStart = 2; // 화요일
-        }
-        
-        // 다음 주의 시작 날짜 계산
-        const nextWeekStart = new Date(nextWeekStartDate);
-        const nextWeekStartDayOfWeek = nextWeekStart.getDay();
-        let daysToNextWeekStart = nextWeekStartDayOfWeek - nextWeekPatternStart;
-        if (daysToNextWeekStart < 0) daysToNextWeekStart += 7;
-        nextWeekStart.setDate(nextWeekStartDate.getDate() - daysToNextWeekStart);
-        
-        // 나머지 주차들 생성
-        for (let week = 1; week < weeks; week++) {
-          const weekPatternOffsets = nextWeekPatternStart === 1 ? [0, 2, 4] : [0, 2, 4]; // 월-수-금 또는 화-목-토
+        // 선택된 요일 세트에 해당하는 날짜인지 확인
+        if (allowedDays.includes(dayOfWeek)) {
+          // 날짜 문자열로 변환하여 중복 확인
+          const dateKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}-${currentDate.getDate()}`;
           
-          weekPatternOffsets.forEach((offset) => {
-            if (schedules.length >= totalDeliveries) {
-              return;
-            }
+          // 중복되지 않은 경우에만 추가
+          if (!addedDates.has(dateKey)) {
+            addedDates.add(dateKey);
             
-            const deliveryDate = new Date(nextWeekStart);
-            deliveryDate.setDate(nextWeekStart.getDate() + (week - 1) * 7 + offset);
-            
-            const productionDate = new Date(deliveryDate);
-            productionDate.setDate(deliveryDate.getDate() - 1);
+            const productionDate = new Date(currentDate);
+            productionDate.setDate(currentDate.getDate() - 1);
             
             schedules.push({
               sequence: sequence++,
-              originalDeliveryDate: deliveryDate,
+              originalDeliveryDate: new Date(currentDate),
               productionDate: productionDate,
             });
-          });
+          }
         }
+        
+        // 다음 날로 이동
+        currentDate.setDate(currentDate.getDate() + 1);
       }
     } else {
       // 매일 배송 (일요일 제외)
