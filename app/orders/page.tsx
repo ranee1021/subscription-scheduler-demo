@@ -2,16 +2,37 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { orderStore } from "../../src/domain/order/orderStore";
 import { Order } from "../../src/domain/order/types";
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // 컴포넌트 마운트 시 주문 목록 로드
-    const loadOrders = () => {
-      setOrders(orderStore.getAllOrders());
+    const loadOrders = async () => {
+      try {
+        const response = await fetch("/api/orders");
+        const result = await response.json();
+        if (result.success) {
+          // Date 객체 복원
+          const ordersWithDates = result.data.map((order: any) => ({
+            ...order,
+            firstDeliveryDate: new Date(order.firstDeliveryDate),
+            createdAt: new Date(order.createdAt),
+            deliveries: order.deliveries.map((delivery: any) => ({
+              ...delivery,
+              originalDeliveryDate: new Date(delivery.originalDeliveryDate),
+              productionDate: new Date(delivery.productionDate),
+            })),
+          }));
+          setOrders(ordersWithDates);
+        }
+      } catch (error) {
+        console.error("주문 목록 로드 실패:", error);
+      } finally {
+        setLoading(false);
+      }
     };
     
     loadOrders();
@@ -30,7 +51,7 @@ export default function OrdersPage() {
     window.addEventListener('popstate', handleLocationChange);
     
     // 주기적으로 주문 목록 갱신 (다른 탭에서 주문 생성 시 대비)
-    const interval = setInterval(loadOrders, 1000);
+    const interval = setInterval(loadOrders, 2000);
     
     return () => {
       window.removeEventListener('focus', handleFocus);
@@ -76,7 +97,11 @@ export default function OrdersPage() {
       </div>
 
       {/* Orders Grid */}
-      {orders.length === 0 ? (
+      {loading ? (
+        <div className="mx-auto mt-8 flex max-w-5xl flex-col items-center justify-center rounded-xl border border-gray-200 bg-white p-12">
+          <p className="text-sm text-gray-400">로딩 중...</p>
+        </div>
+      ) : orders.length === 0 ? (
         <div className="mx-auto mt-8 flex max-w-5xl flex-col items-center justify-center rounded-xl border border-gray-200 bg-white p-12">
           <p className="text-sm text-gray-400">등록된 주문이 없습니다.</p>
           <Link

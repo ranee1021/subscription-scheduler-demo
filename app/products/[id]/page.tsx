@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { productStore } from "../../../src/domain/product/productStore";
 import { Product } from "../../../src/domain/product/types";
 import Link from "next/link";
 
@@ -11,17 +10,50 @@ export default function ProductDetailPage() {
   const router = useRouter();
   const productId = params.id as string;
   const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (productId) {
-      const foundProduct = productStore.getProductById(productId);
-      setProduct(foundProduct || null);
-    }
+    const fetchProduct = async () => {
+      if (!productId) return;
+      
+      try {
+        const response = await fetch(`/api/products/${productId}`);
+        const result = await response.json();
+        if (result.success) {
+          // Date 객체 복원
+          setProduct({
+            ...result.data,
+            createdAt: new Date(result.data.createdAt),
+          });
+        } else {
+          setProduct(null);
+        }
+      } catch (error) {
+        console.error("상품 정보 로드 실패:", error);
+        setProduct(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
   }, [productId]);
 
   const formatDate = (date: Date): string => {
     return new Date(date).toLocaleDateString("ko-KR");
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-4 py-8">
+        <div className="mx-auto max-w-4xl">
+          <div className="flex h-64 items-center justify-center text-sm text-gray-400">
+            로딩 중...
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!product) {
     return (

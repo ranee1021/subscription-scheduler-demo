@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { orderStore } from "../../../src/domain/order/orderStore";
 import { Order } from "../../../src/domain/order/types";
 
 export default function OrderDetailPage() {
@@ -11,12 +10,39 @@ export default function OrderDetailPage() {
   const router = useRouter();
   const orderId = params.id as string;
   const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (orderId) {
-      const foundOrder = orderStore.getOrderById(orderId);
-      setOrder(foundOrder || null);
-    }
+    const fetchOrder = async () => {
+      if (!orderId) return;
+      
+      try {
+        const response = await fetch(`/api/orders/${orderId}`);
+        const result = await response.json();
+        if (result.success) {
+          // Date 객체 복원
+          setOrder({
+            ...result.data,
+            firstDeliveryDate: new Date(result.data.firstDeliveryDate),
+            createdAt: new Date(result.data.createdAt),
+            deliveries: result.data.deliveries.map((delivery: any) => ({
+              ...delivery,
+              originalDeliveryDate: new Date(delivery.originalDeliveryDate),
+              productionDate: new Date(delivery.productionDate),
+            })),
+          });
+        } else {
+          setOrder(null);
+        }
+      } catch (error) {
+        console.error("주문 정보 로드 실패:", error);
+        setOrder(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrder();
   }, [orderId]);
 
   const formatDate = (date: Date): string => {
@@ -33,6 +59,18 @@ export default function OrderDetailPage() {
       second: "2-digit",
     });
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-4 py-8">
+        <div className="mx-auto max-w-4xl">
+          <div className="flex h-64 items-center justify-center text-sm text-gray-400">
+            로딩 중...
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!order) {
     return (

@@ -1,12 +1,41 @@
 "use client";
 
-import React from "react";
-import { productStore } from "../../src/domain/product/productStore";
+import React, { useState, useEffect } from "react";
 import { Product } from "../../src/domain/product/types";
 import Link from "next/link";
 
 export default function ProductsPage() {
-  const products = productStore.getAllProducts();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch("/api/products");
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const result = await response.json();
+        console.log("상품 API 응답:", result);
+        if (result.success && result.data) {
+          // Date 객체 복원
+          const productsWithDates = result.data.map((product: any) => ({
+            ...product,
+            createdAt: new Date(product.createdAt),
+          }));
+          setProducts(productsWithDates);
+        } else {
+          console.error("상품 목록 응답 실패:", result);
+        }
+      } catch (error) {
+        console.error("상품 목록 로드 실패:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
@@ -20,7 +49,11 @@ export default function ProductsPage() {
         </div>
 
         {/* Products Grid */}
-        {products.length === 0 ? (
+        {loading ? (
+          <div className="flex h-64 items-center justify-center text-sm text-gray-400">
+            로딩 중...
+          </div>
+        ) : products.length === 0 ? (
           <div className="flex h-64 items-center justify-center text-sm text-gray-400">
             등록된 상품이 없습니다.
           </div>

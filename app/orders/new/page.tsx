@@ -6,8 +6,6 @@ import { DeliverySchedule, DeliveryFrequency } from "../../../src/domain/schedul
 import { generateDeliverySchedules } from "../../../src/domain/schedule/generateSchedule";
 import { PaymentAttempt, generatePaymentAttempts } from "../../../src/domain/payment/generatePayment";
 import { Order } from "../../../src/domain/order/types";
-import { orderStore } from "../../../src/domain/order/orderStore";
-import { productStore } from "../../../src/domain/product/productStore";
 import { Product } from "../../../src/domain/product/types";
 
 type PeriodOption = "1주" | "2주" | "4주";
@@ -15,37 +13,75 @@ type PeriodOption = "1주" | "2주" | "4주";
 export default function NewOrderPage() {
   const router = useRouter();
   const [productId, setProductId] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
   
-  // 클라이언트 사이드에서 URL 파라미터 읽기 (컴포넌트 마운트 및 URL 변경 시)
+  // 클라이언트 사이드에서 URL 파라미터 읽기 및 상품 정보 로드
   useEffect(() => {
-    const updateProductId = () => {
-      if (typeof window !== "undefined") {
-        const params = new URLSearchParams(window.location.search);
-        const id = params.get("productId");
-        setProductId(id);
-        setIsInitialized(true);
+    const loadProduct = async () => {
+      if (typeof window === "undefined") return;
+      
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get("productId");
+      setProductId(id);
+      
+      try {
+        let productData: Product | null = null;
+        
+        if (id) {
+          // 특정 상품 조회
+          const response = await fetch(`/api/products/${id}`);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          const result = await response.json();
+          console.log("상품 상세 API 응답:", result);
+          if (result.success && result.data) {
+            productData = {
+              ...result.data,
+              createdAt: new Date(result.data.createdAt),
+            };
+          }
+        } else {
+          // 첫 번째 상품 조회
+          const response = await fetch("/api/products");
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          const result = await response.json();
+          console.log("상품 목록 API 응답:", result);
+          if (result.success && result.data && result.data.length > 0) {
+            productData = {
+              ...result.data[0],
+              createdAt: new Date(result.data[0].createdAt),
+            };
+          }
+        }
+        
+        setProduct(productData);
+      } catch (error) {
+        console.error("상품 정보 로드 실패:", error);
+      } finally {
+        setLoading(false);
       }
     };
     
-    updateProductId();
+    loadProduct();
     
     // 주기적으로 URL 파라미터 확인 (다른 페이지에서 돌아올 때)
-    const interval = setInterval(updateProductId, 500);
+    const interval = setInterval(() => {
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get("productId");
+        if (id !== productId) {
+          loadProduct();
+        }
+      }
+    }, 500);
     
     return () => {
       clearInterval(interval);
     };
-  }, []);
-  
-  // 상품 정보 가져오기
-  const product = useMemo(() => {
-    if (productId) {
-      return productStore.getProductById(productId);
-    }
-    // 기본값: 첫 번째 상품 사용
-    const allProducts = productStore.getAllProducts();
-    return allProducts.length > 0 ? allProducts[0] : null;
   }, [productId]);
 
   // 기간 옵션 (상품에서 가져오기)
@@ -205,7 +241,7 @@ export default function NewOrderPage() {
   };
 
   // 주문 생성 핸들러
-  const handleCreateOrder = () => {
+  const handleCreateOrder = async () => {
     if (!selectedDate || schedules.length === 0) {
       alert("첫 배송일을 선택해주세요.");
       return;
@@ -221,18 +257,35 @@ export default function NewOrderPage() {
       createdAt: new Date(),
     };
 
-    // 주문 저장
-    orderStore.createOrder(newOrder);
-    
-    // 생성된 주문 ID 저장
-    setCreatedOrderId(newOrder.id);
-    
-    // 상태 초기화 (다음 주문을 위해)
-    setSelectedDate(null);
-    
-    // 주문 완료 알럿 표시 후 주문 상세 페이지로 리다이렉트
-    alert("주문이 완료되었습니다.");
-    router.push(`/orders/${newOrder.id}`);
+    try {
+      // API를 통해 주문 저장
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newOrder),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // 생성된 주문 ID 저장
+        setCreatedOrderId(newOrder.id);
+        
+        // 상태 초기화 (다음 주문을 위해)
+        setSelectedDate(null);
+        
+        // 주문 완료 알럿 표시 후 주문 상세 페이지로 리다이렉트
+        alert("주문이 완료되었습니다.");
+        router.push(`/orders/${newOrder.id}`);
+      } else {
+        alert(`주문 생성 실패: ${result.error}`);
+      }
+    } catch (error) {
+      console.error("주문 생성 실패:", error);
+      alert("주문 생성 중 오류가 발생했습니다.");
+    }
   };
 
   const weeks = parseInt(selectedPeriod.replace("주", ""));
