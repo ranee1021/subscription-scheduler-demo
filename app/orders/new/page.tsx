@@ -10,9 +10,6 @@ import { orderStore } from "../../../src/domain/order/orderStore";
 import { productStore } from "../../../src/domain/product/productStore";
 import { Product } from "../../../src/domain/product/types";
 
-// 동적 렌더링 강제 (prerender 방지)
-export const dynamic = 'force-dynamic';
-
 type PeriodOption = "1주" | "2주" | "4주";
 
 export default function NewOrderPage() {
