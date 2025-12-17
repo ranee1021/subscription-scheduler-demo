@@ -19,10 +19,10 @@ export default function Home() {
               주문 목록 보기
             </Link>
             <Link
-              href="/orders/new"
+              href="/products"
               className="px-6 py-3 bg-gray-100 text-gray-900 rounded-md hover:bg-gray-200 transition-colors font-medium border border-gray-300"
             >
-              정기배송 주문 생성
+              주문하기
             </Link>
           </div>
         </div>

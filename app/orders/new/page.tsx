@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { DeliverySchedule, DeliveryFrequency } from "../../../src/domain/schedule/types";
 import { generateDeliverySchedules } from "../../../src/domain/schedule/generateSchedule";
 import { PaymentAttempt, generatePaymentAttempts } from "../../../src/domain/payment/generatePayment";
@@ -12,15 +13,29 @@ import { Product } from "../../../src/domain/product/types";
 type PeriodOption = "1주" | "2주" | "4주";
 
 export default function NewOrderPage() {
+  const router = useRouter();
   const [productId, setProductId] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
   
-  // 클라이언트 사이드에서 URL 파라미터 읽기 (useSearchParams 대신)
+  // 클라이언트 사이드에서 URL 파라미터 읽기 (컴포넌트 마운트 및 URL 변경 시)
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const id = params.get("productId");
-      setProductId(id);
-    }
+    const updateProductId = () => {
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get("productId");
+        setProductId(id);
+        setIsInitialized(true);
+      }
+    };
+    
+    updateProductId();
+    
+    // 주기적으로 URL 파라미터 확인 (다른 페이지에서 돌아올 때)
+    const interval = setInterval(updateProductId, 500);
+    
+    return () => {
+      clearInterval(interval);
+    };
   }, []);
   
   // 상품 정보 가져오기
@@ -212,10 +227,12 @@ export default function NewOrderPage() {
     // 생성된 주문 ID 저장
     setCreatedOrderId(newOrder.id);
     
-    // 5초 후 메시지 숨기기
-    setTimeout(() => {
-      setCreatedOrderId(null);
-    }, 5000);
+    // 상태 초기화 (다음 주문을 위해)
+    setSelectedDate(null);
+    
+    // 주문 완료 알럿 표시 후 주문 상세 페이지로 리다이렉트
+    alert("주문이 완료되었습니다.");
+    router.push(`/orders/${newOrder.id}`);
   };
 
   const weeks = parseInt(selectedPeriod.replace("주", ""));
