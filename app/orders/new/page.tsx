@@ -1,20 +1,13 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-
-interface DeliverySchedule {
-  sequence: number;
-  originalDeliveryDate: Date;
-  productionDate: Date;
-}
-
-interface PaymentAttempt {
-  daysBefore: number;
-  attemptDate: Date;
-}
+import { DeliverySchedule, DeliveryFrequency } from "../../../src/domain/schedule/types";
+import { generateDeliverySchedules } from "../../../src/domain/schedule/generateSchedule";
+import { PaymentAttempt, generatePaymentAttempts } from "../../../src/domain/payment/generatePayment";
+import { Order } from "../../../src/domain/order/types";
+import { orderStore } from "../../../src/domain/order/orderStore";
 
 type PeriodOption = "1주" | "2주" | "4주";
-type DeliveryFrequency = "주3회" | "매일배송";
 
 interface PeriodPrice {
   period: PeriodOption;
@@ -31,6 +24,7 @@ export default function NewOrderPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>("1주");
   const [deliveryFrequency, setDeliveryFrequency] = useState<DeliveryFrequency>("주3회");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
 
   // 선택된 기간의 가격
   const selectedPrice = useMemo(() => {
@@ -43,102 +37,6 @@ export default function NewOrderPage() {
     return Math.round(selectedPrice / (weeks * 7));
   }, [selectedPeriod, selectedPrice]);
 
-  // 배송 스케줄 생성
-  const generateDeliverySchedules = (
-    startDate: Date,
-    weeks: number,
-    frequency: DeliveryFrequency
-  ): DeliverySchedule[] => {
-    const schedules: DeliverySchedule[] = [];
-    const firstDate = new Date(startDate);
-    let sequence = 1;
-
-    if (frequency === "주3회") {
-      // 주 3회 배송: 첫 배송일의 요일에 따라 패턴 결정
-      // 1주 = 3회, 2주 = 6회, 4주 = 12회
-      const totalDeliveries = weeks * 3;
-      const firstDayOfWeek = firstDate.getDay();
-      
-      // 첫 배송일의 요일을 기준으로 요일 세트 결정
-      // 월(1), 수(3), 금(5) → 월/수/금 세트
-      // 화(2), 목(4), 토(6) → 화/목/토 세트
-      const allowedDays: number[] = 
-        firstDayOfWeek === 1 || firstDayOfWeek === 3 || firstDayOfWeek === 5
-          ? [1, 3, 5] // 월/수/금 세트
-          : [2, 4, 6]; // 화/목/토 세트
-      
-      // 첫 배송일부터 하루씩 증가시키면서 선택된 요일 세트에 해당하는 날짜만 순차적으로 채택
-      let currentDate = new Date(firstDate);
-      currentDate.setHours(0, 0, 0, 0);
-      
-      // 이미 추가된 날짜를 추적하여 중복 방지
-      const addedDates = new Set<string>();
-      
-      while (schedules.length < totalDeliveries) {
-        const dayOfWeek = currentDate.getDay();
-        
-        // 선택된 요일 세트에 해당하는 날짜인지 확인
-        if (allowedDays.includes(dayOfWeek)) {
-          // 날짜 문자열로 변환하여 중복 확인
-          const dateKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}-${currentDate.getDate()}`;
-          
-          // 중복되지 않은 경우에만 추가
-          if (!addedDates.has(dateKey)) {
-            addedDates.add(dateKey);
-            
-            const productionDate = new Date(currentDate);
-            productionDate.setDate(currentDate.getDate() - 1);
-            
-            schedules.push({
-              sequence: sequence++,
-              originalDeliveryDate: new Date(currentDate),
-              productionDate: productionDate,
-            });
-          }
-        }
-        
-        // 다음 날로 이동
-        currentDate.setDate(currentDate.getDate() + 1);
-      }
-    } else {
-      // 매일 배송 (일요일 제외)
-      const totalDays = weeks * 7;
-      for (let day = 0; day < totalDays; day++) {
-        const deliveryDate = new Date(firstDate);
-        deliveryDate.setDate(firstDate.getDate() + day);
-        
-        // 일요일(0)은 제외
-        if (deliveryDate.getDay() !== 0) {
-          const productionDate = new Date(deliveryDate);
-          productionDate.setDate(deliveryDate.getDate() - 1);
-          
-          schedules.push({
-            sequence: sequence++,
-            originalDeliveryDate: deliveryDate,
-            productionDate: productionDate,
-          });
-        }
-      }
-    }
-
-    return schedules;
-  };
-
-  // 결제 시도일 생성 (마지막 배송예정일 기준 D-7, D-6, D-5, D-4)
-  const generatePaymentAttempts = (
-    lastDeliveryDate: Date
-  ): PaymentAttempt[] => {
-    const attempts: PaymentAttempt[] = [];
-    for (let daysBefore = 7; daysBefore >= 4; daysBefore--) {
-      const attemptDate = new Date(lastDeliveryDate);
-      attemptDate.setDate(lastDeliveryDate.getDate() - daysBefore);
-      attempts.push({
-        daysBefore,
-        attemptDate,
-      });
-    }
-    return attempts;
-  };
 
   // 날짜 포맷팅 (YYYY-MM-DD)
   const formatDate = (date: Date): string => {
@@ -262,6 +160,35 @@ export default function NewOrderPage() {
     }
   };
 
+  // 주문 생성 핸들러
+  const handleCreateOrder = () => {
+    if (!selectedDate || schedules.length === 0) {
+      alert("첫 배송일을 선택해주세요.");
+      return;
+    }
+
+    // Order 객체 생성
+    const newOrder: Order = {
+      id: `order-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      firstDeliveryDate: selectedDate,
+      status: "ACTIVE",
+      deliveryCount: schedules.length,
+      deliveries: schedules,
+      createdAt: new Date(),
+    };
+
+    // 주문 저장
+    orderStore.createOrder(newOrder);
+    
+    // 생성된 주문 ID 저장
+    setCreatedOrderId(newOrder.id);
+    
+    // 5초 후 메시지 숨기기
+    setTimeout(() => {
+      setCreatedOrderId(null);
+    }, 5000);
+  };
+
   const weeks = parseInt(selectedPeriod.replace("주", ""));
   const schedules = selectedDate
     ? generateDeliverySchedules(selectedDate, weeks, deliveryFrequency)
@@ -288,6 +215,17 @@ export default function NewOrderPage() {
   };
   const isLastDeliveryDate = (date: Date): boolean => {
     return lastDeliveryDate ? isSameDate(date, lastDeliveryDate) : false;
+  };
+  
+  // 배송 기간 내 날짜인지 확인 (첫 배송일 ~ 마지막 배송일)
+  const isInDeliveryPeriod = (date: Date): boolean => {
+    if (!firstDeliveryDate || !lastDeliveryDate) return false;
+    
+    const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const firstOnly = new Date(firstDeliveryDate.getFullYear(), firstDeliveryDate.getMonth(), firstDeliveryDate.getDate());
+    const lastOnly = new Date(lastDeliveryDate.getFullYear(), lastDeliveryDate.getMonth(), lastDeliveryDate.getDate());
+    
+    return dateOnly >= firstOnly && dateOnly <= lastOnly;
   };
 
   return (
@@ -418,24 +356,48 @@ export default function NewOrderPage() {
                   const sequence = getDeliverySequence(date);
                   const isFirstDelivery = isFirstDeliveryDate(date);
                   const isLastDelivery = isLastDeliveryDate(date);
+                  const inDeliveryPeriod = isInDeliveryPeriod(date);
+
+                  // 배경색 및 스타일 결정 (우선순위: 선택된 날짜 > 오늘 > 기본)
+                  // 배송예정일은 배경 없이 차수 레이블만 표시
+                  let bgClass = "";
+                  let cursorClass = "";
+                  let borderClass = "";
+                  
+                  if (!isSelectable) {
+                    // 선택 불가 날짜: 연한 회색 텍스트, hover 없음, default 커서, 낮은 대비, 점선 없음
+                    bgClass = "text-gray-300";
+                    cursorClass = "cursor-default";
+                    borderClass = "";
+                  } else if (isSelected) {
+                    // 첫 배송일 선택 (최우선): 점선 테두리 없음
+                    bgClass = "bg-indigo-600 text-white font-semibold";
+                    cursorClass = "cursor-pointer";
+                    borderClass = "";
+                  } else if (isToday) {
+                    // 오늘: 점선 테두리 적용
+                    bgClass = "bg-gray-100 text-gray-900 font-medium";
+                    cursorClass = "cursor-pointer";
+                    borderClass = "border border-dashed border-gray-300";
+                  } else {
+                    // 선택 가능한 날짜: 기본 텍스트 색상, 항상 보이는 점선 테두리, pointer 커서
+                    bgClass = "text-gray-700";
+                    cursorClass = "cursor-pointer";
+                    borderClass = "border border-dashed border-gray-300";
+                  }
 
                   return (
                     <div key={index} className="relative">
+                      {/* 배송 기간 배경 (가장 아래 레벨) */}
+                      {inDeliveryPeriod && (
+                        <div className="absolute inset-0 bg-indigo-50/30 rounded-lg pointer-events-none" />
+                      )}
+                      
                       <button
                         type="button"
                         onClick={() => handleDateClick(date)}
                         disabled={!isSelectable}
-                        className={`aspect-square w-full rounded-lg text-sm transition ${
-                          !isSelectable
-                            ? "text-gray-300 cursor-not-allowed"
-                            : isSelected
-                            ? "bg-indigo-600 text-white font-semibold"
-                            : isDelivery
-                            ? "bg-indigo-100 text-indigo-700 font-medium"
-                            : isToday
-                            ? "bg-gray-100 text-gray-900 font-medium"
-                            : "text-gray-700 hover:bg-gray-50"
-                        }`}
+                        className={`relative aspect-square w-full rounded-lg text-sm transition ${bgClass} ${cursorClass} ${borderClass} disabled:hover:bg-transparent disabled:opacity-60`}
                       >
                         <div>{date.getDate()}</div>
                         {isDelivery && sequence && (
@@ -472,8 +434,12 @@ export default function NewOrderPage() {
                   <span>선택된 첫 배송일</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 rounded bg-indigo-100" />
-                  <span>배송 예정일</span>
+                  <div className="h-4 w-4 rounded border border-dashed border-gray-300" />
+                  <span>선택 가능 날짜</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 rounded bg-indigo-50/30 border border-indigo-200" />
+                  <span>정기배송 기간</span>
                 </div>
               </div>
             </div>
@@ -583,6 +549,34 @@ export default function NewOrderPage() {
                       </tbody>
                     </table>
                   </div>
+                </div>
+
+                {/* 주문 생성 버튼 */}
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={handleCreateOrder}
+                    disabled={!selectedDate || schedules.length === 0}
+                    className={`w-full rounded-lg px-4 py-3 text-base font-semibold text-white transition ${
+                      !selectedDate || schedules.length === 0
+                        ? "bg-gray-300 cursor-not-allowed"
+                        : "bg-indigo-600 hover:bg-indigo-700"
+                    }`}
+                  >
+                    주문 생성
+                  </button>
+                  
+                  {/* 주문 생성 성공 메시지 */}
+                  {createdOrderId && (
+                    <div className="mt-4 rounded-lg bg-green-50 border border-green-200 p-4">
+                      <p className="text-sm font-medium text-green-800">
+                        주문이 생성되었습니다!
+                      </p>
+                      <p className="mt-1 text-xs text-green-700">
+                        주문 ID: {createdOrderId}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
