@@ -31,7 +31,6 @@ export default function NewOrderPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>("1주");
   const [deliveryFrequency, setDeliveryFrequency] = useState<DeliveryFrequency>("주3회");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   // 선택된 기간의 가격
   const selectedPrice = useMemo(() => {
@@ -55,36 +54,107 @@ export default function NewOrderPage() {
     let sequence = 1;
 
     if (frequency === "주3회") {
-      // 주 3회 배송: 첫 배송일이 월요일이면 월-수-금, 화요일이면 화-목-토
+      // 주 3회 배송: 첫 배송일의 요일에 따라 패턴 결정
+      // 1주 = 3회, 2주 = 6회, 4주 = 12회
+      const totalDeliveries = weeks * 3;
       const firstDayOfWeek = firstDate.getDay();
       
-      let pattern: number[]; // 요일 오프셋 (0=일요일, 1=월요일, ...)
-      if (firstDayOfWeek === 1) {
-        // 월요일: 월-수-금 (0, 2, 4)
-        pattern = [0, 2, 4];
-      } else if (firstDayOfWeek === 2) {
-        // 화요일: 화-목-토 (0, 2, 4)
-        pattern = [0, 2, 4];
-      } else {
-        // 다른 요일인 경우 (이론적으로는 발생하지 않아야 함)
-        // 기본값으로 월-수-금 패턴 사용
-        pattern = [0, 2, 4];
+      // 각 요일별 다음 배송일 패턴 정의
+      // [1차는 첫 배송일, 2차와 3차의 상대적 날짜 오프셋]
+      let patternOffsets: number[];
+      
+      switch (firstDayOfWeek) {
+        case 1: // 월: 월-수-금 (같은 주)
+          patternOffsets = [0, 2, 4]; // 월(0), 수(+2), 금(+4)
+          break;
+        case 2: // 화: 화-목-토 (같은 주)
+          patternOffsets = [0, 2, 4]; // 화(0), 목(+2), 토(+4)
+          break;
+        case 3: // 수: 수-금-월(차주)
+          patternOffsets = [0, 2, 5]; // 수(0), 금(+2), 다음주 월(+5)
+          break;
+        case 4: // 목: 목-토-화(차주)
+          patternOffsets = [0, 2, 5]; // 목(0), 토(+2), 다음주 화(+5)
+          break;
+        case 5: // 금: 금-월(차주)-수(차주)
+          patternOffsets = [0, 3, 5]; // 금(0), 다음주 월(+3), 다음주 수(+5)
+          break;
+        case 6: // 토: 토-화(차주)-목(차주)
+          patternOffsets = [0, 3, 5]; // 토(0), 다음주 화(+3), 다음주 목(+5)
+          break;
+        default: // 일요일은 선택 불가
+          patternOffsets = [0, 2, 4];
       }
-
-      // 선택된 주수만큼 주 3회 배송
-      for (let week = 0; week < weeks; week++) {
-        pattern.forEach((offset) => {
-          const deliveryDate = new Date(firstDate);
-          deliveryDate.setDate(firstDate.getDate() + week * 7 + offset);
-          const productionDate = new Date(deliveryDate);
-          productionDate.setDate(deliveryDate.getDate() - 1);
-          
-          schedules.push({
-            sequence: sequence++,
-            originalDeliveryDate: deliveryDate,
-            productionDate: productionDate,
-          });
+      
+      // 첫 배송일 추가 (1차)
+      const firstProductionDate = new Date(firstDate);
+      firstProductionDate.setDate(firstDate.getDate() - 1);
+      schedules.push({
+        sequence: sequence++,
+        originalDeliveryDate: new Date(firstDate),
+        productionDate: firstProductionDate,
+      });
+      
+      // 2차와 3차 생성
+      for (let i = 1; i < 3 && schedules.length < totalDeliveries; i++) {
+        const deliveryDate = new Date(firstDate);
+        deliveryDate.setDate(firstDate.getDate() + patternOffsets[i]);
+        
+        const productionDate = new Date(deliveryDate);
+        productionDate.setDate(deliveryDate.getDate() - 1);
+        
+        schedules.push({
+          sequence: sequence++,
+          originalDeliveryDate: deliveryDate,
+          productionDate: productionDate,
         });
+      }
+      
+      // 나머지 주차들 생성 (2주, 4주인 경우)
+      if (weeks > 1) {
+        // 다음 주부터 시작
+        const nextWeekStartDate = new Date(firstDate);
+        nextWeekStartDate.setDate(firstDate.getDate() + 7);
+        
+        // 다음 주의 패턴 시작 요일 결정
+        let nextWeekPatternStart: number;
+        if (firstDayOfWeek === 1 || firstDayOfWeek === 3 || firstDayOfWeek === 5) {
+          // 월-수-금 패턴
+          nextWeekPatternStart = 1; // 월요일
+        } else {
+          // 화-목-토 패턴
+          nextWeekPatternStart = 2; // 화요일
+        }
+        
+        // 다음 주의 시작 날짜 계산
+        const nextWeekStart = new Date(nextWeekStartDate);
+        const nextWeekStartDayOfWeek = nextWeekStart.getDay();
+        let daysToNextWeekStart = nextWeekStartDayOfWeek - nextWeekPatternStart;
+        if (daysToNextWeekStart < 0) daysToNextWeekStart += 7;
+        nextWeekStart.setDate(nextWeekStartDate.getDate() - daysToNextWeekStart);
+        
+        // 나머지 주차들 생성
+        for (let week = 1; week < weeks; week++) {
+          const weekPatternOffsets = nextWeekPatternStart === 1 ? [0, 2, 4] : [0, 2, 4]; // 월-수-금 또는 화-목-토
+          
+          weekPatternOffsets.forEach((offset) => {
+            if (schedules.length >= totalDeliveries) {
+              return;
+            }
+            
+            const deliveryDate = new Date(nextWeekStart);
+            deliveryDate.setDate(nextWeekStart.getDate() + (week - 1) * 7 + offset);
+            
+            const productionDate = new Date(deliveryDate);
+            productionDate.setDate(deliveryDate.getDate() - 1);
+            
+            schedules.push({
+              sequence: sequence++,
+              originalDeliveryDate: deliveryDate,
+              productionDate: productionDate,
+            });
+          });
+        }
       }
     } else {
       // 매일 배송 (일요일 제외)
@@ -151,13 +221,28 @@ export default function NewOrderPage() {
     );
   };
 
-  // 캘린더 관련 함수들
-  const getDaysInMonth = (date: Date): number => {
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-  };
-
-  const getFirstDayOfMonth = (date: Date): number => {
-    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+  // 오늘 기준 6주차 날짜 배열 생성
+  const getCalendarWeeks = (): Date[] => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // 오늘이 포함된 주의 월요일 찾기
+    const todayDayOfWeek = today.getDay(); // 0=일요일, 1=월요일, ..., 6=토요일
+    const daysToMonday = todayDayOfWeek === 0 ? -6 : 1 - todayDayOfWeek; // 일요일이면 -6, 아니면 월요일까지의 차이
+    
+    const firstMonday = new Date(today);
+    firstMonday.setDate(today.getDate() + daysToMonday);
+    firstMonday.setHours(0, 0, 0, 0);
+    
+    // 6주치 날짜 생성 (42일 = 6주 * 7일)
+    const calendarDays: Date[] = [];
+    for (let i = 0; i < 42; i++) {
+      const date = new Date(firstMonday);
+      date.setDate(firstMonday.getDate() + i);
+      calendarDays.push(date);
+    }
+    
+    return calendarDays;
   };
 
   const isDeliveryDate = (date: Date): boolean => {
@@ -180,7 +265,7 @@ export default function NewOrderPage() {
     return schedule ? schedule.sequence : null;
   };
 
-  // 날짜 선택 가능 여부 확인 (오늘부터 2일 뒤부터, 일요일 제외, 주 3회는 월/화만)
+  // 날짜 선택 가능 여부 확인 (오늘부터 2일 뒤부터, 일요일 제외)
   const isDateSelectable = (date: Date): boolean => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -194,38 +279,15 @@ export default function NewOrderPage() {
     // 일요일(0)은 선택 불가
     if (checkDate.getDay() === 0) return false;
     
-    // 주 3회 배송의 경우 월요일(1) 또는 화요일(2)만 선택 가능
-    if (deliveryFrequency === "주3회") {
-      const dayOfWeek = checkDate.getDay();
-      if (dayOfWeek !== 1 && dayOfWeek !== 2) return false;
-    }
-    
     // 오늘부터 2일 뒤부터 선택 가능
     return checkDate >= minDate;
   };
 
-  const handleDateClick = (day: number) => {
-    const newDate = new Date(
-      currentMonth.getFullYear(),
-      currentMonth.getMonth(),
-      day
-    );
+  const handleDateClick = (date: Date) => {
     // 선택 가능한 날짜인지 확인
-    if (isDateSelectable(newDate)) {
-      setSelectedDate(newDate);
+    if (isDateSelectable(date)) {
+      setSelectedDate(date);
     }
-  };
-
-  const goToPreviousMonth = () => {
-    setCurrentMonth(
-      new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1)
-    );
-  };
-
-  const goToNextMonth = () => {
-    setCurrentMonth(
-      new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
-    );
   };
 
   const weeks = parseInt(selectedPeriod.replace("주", ""));
@@ -241,10 +303,11 @@ export default function NewOrderPage() {
     : [];
 
   // 캘린더 렌더링
-  const daysInMonth = getDaysInMonth(currentMonth);
-  const firstDay = getFirstDayOfMonth(currentMonth);
-  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const calendarDays = getCalendarWeeks();
   const weekDays = ["일", "월", "화", "수", "목", "금", "토"];
+  
+  // 첫 번째 날짜의 요일 확인 (0=일요일, 1=월요일, ..., 6=토요일)
+  const firstDayOfWeek = calendarDays.length > 0 ? calendarDays[0].getDay() : 0;
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
@@ -347,51 +410,6 @@ export default function NewOrderPage() {
 
             {/* Calendar */}
             <div className="calendar">
-              {/* Calendar Header */}
-              <div className="mb-4 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={goToPreviousMonth}
-                  className="rounded-lg p-2 text-gray-600 hover:bg-gray-100"
-                >
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 19l-7-7 7-7"
-                    />
-                  </svg>
-                </button>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {currentMonth.getFullYear()}년 {currentMonth.getMonth() + 1}월
-                </h3>
-                <button
-                  type="button"
-                  onClick={goToNextMonth}
-                  className="rounded-lg p-2 text-gray-600 hover:bg-gray-100"
-                >
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                </button>
-              </div>
-
               {/* Week Days */}
               <div className="mb-2 grid grid-cols-7 gap-1">
                 {weekDays.map((day) => (
@@ -406,18 +424,12 @@ export default function NewOrderPage() {
 
               {/* Calendar Days */}
               <div className="grid grid-cols-7 gap-1">
-                {/* Empty cells for days before month starts */}
-                {Array.from({ length: firstDay }).map((_, i) => (
+                {/* 첫 번째 날짜 앞의 빈 셀들 (일요일부터 첫 번째 날짜까지) */}
+                {Array.from({ length: firstDayOfWeek }).map((_, i) => (
                   <div key={`empty-${i}`} className="aspect-square" />
                 ))}
-
-                {/* Days of the month */}
-                {days.map((day) => {
-                  const date = new Date(
-                    currentMonth.getFullYear(),
-                    currentMonth.getMonth(),
-                    day
-                  );
+                
+                {calendarDays.map((date, index) => {
                   const isSelected = selectedDate && isSameDate(selectedDate, date);
                   const isDelivery = isDeliveryDate(date);
                   const isToday = isSameDate(date, new Date());
@@ -426,9 +438,9 @@ export default function NewOrderPage() {
 
                   return (
                     <button
-                      key={day}
+                      key={index}
                       type="button"
-                      onClick={() => handleDateClick(day)}
+                      onClick={() => handleDateClick(date)}
                       disabled={!isSelectable}
                       className={`aspect-square rounded-lg text-sm transition relative ${
                         !isSelectable
@@ -442,7 +454,7 @@ export default function NewOrderPage() {
                           : "text-gray-700 hover:bg-gray-50"
                       }`}
                     >
-                      <div>{day}</div>
+                      <div>{date.getDate()}</div>
                       {isDelivery && sequence && (
                         <div className="absolute top-0.5 right-0.5 text-[10px] font-bold bg-indigo-200 text-indigo-800 rounded px-1">
                           {sequence}차
