@@ -104,12 +104,6 @@ export default function OrdersPage() {
       ) : orders.length === 0 ? (
         <div className="mx-auto mt-8 flex max-w-5xl flex-col items-center justify-center rounded-xl border border-gray-200 bg-white p-12">
           <p className="text-sm text-gray-400">등록된 주문이 없습니다.</p>
-          <Link
-            href="/orders/new"
-            className="mt-4 text-sm font-medium text-indigo-600 hover:text-indigo-700"
-          >
-            새 주문 만들기 →
-          </Link>
         </div>
       ) : (
         <div className="mx-auto mt-8 grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
