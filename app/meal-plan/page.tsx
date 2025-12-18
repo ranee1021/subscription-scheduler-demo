@@ -109,9 +109,13 @@ export default function MealPlanPage() {
   for (let day = 1; day <= daysInMonth; day += 1) {
     const date = plan?.days[day - 1]?.date ?? "";
     const menus = plan?.days[day - 1]?.menus ?? [];
+    const key = date
+      ? `day-${date}`
+      : `day-${currentYear}-${currentMonth}-${day}`;
+
     cells.push({
       type: "day",
-      key: `day-${date}`,
+      key,
       date,
       dayNumber: day,
       menus,
