@@ -1,47 +1,5 @@
 import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
-
-// API Routes 전용 타입 정의 (서버 전용)
-interface Order {
-  id: string;
-  firstDeliveryDate: Date;
-  status: "ACTIVE";
-  deliveryCount: number;
-  deliveries: Array<{
-    sequence: number;
-    originalDeliveryDate: Date;
-    productionDate: Date;
-  }>;
-  createdAt: Date;
-}
-
-const ORDERS_FILE_PATH = path.join(process.cwd(), "data", "orders.json");
-
-// 주문 목록 로드
-function loadOrders(): Order[] {
-  try {
-    if (!fs.existsSync(ORDERS_FILE_PATH)) {
-      return [];
-    }
-    const data = fs.readFileSync(ORDERS_FILE_PATH, "utf-8");
-    const orders = JSON.parse(data);
-    // Date 객체 복원
-    return orders.map((order: any) => ({
-      ...order,
-      firstDeliveryDate: new Date(order.firstDeliveryDate),
-      createdAt: new Date(order.createdAt),
-      deliveries: order.deliveries.map((delivery: any) => ({
-        ...delivery,
-        originalDeliveryDate: new Date(delivery.originalDeliveryDate),
-        productionDate: new Date(delivery.productionDate),
-      })),
-    }));
-  } catch (error) {
-    console.error("주문 목록 로드 실패:", error);
-    return [];
-  }
-}
+import { loadOrders } from "../store";
 
 /**
  * GET /api/orders/[id]
