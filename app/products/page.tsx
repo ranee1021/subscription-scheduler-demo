@@ -112,18 +112,12 @@ function ProductCard({ product }: ProductCardProps) {
       </div>
 
       {/* 버튼 영역 */}
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4">
         <Link
           href={`/products/${product.id}`}
-          className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 text-center text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+          className="block w-full rounded-lg bg-indigo-600 px-4 py-2 text-center text-sm font-medium text-white transition hover:bg-indigo-700"
         >
           자세히보기
-        </Link>
-        <Link
-          href={`/orders/new?productId=${product.id}`}
-          className="flex-1 rounded-lg bg-indigo-600 px-4 py-2 text-center text-sm font-medium text-white transition hover:bg-indigo-700"
-        >
-          주문하기
         </Link>
       </div>
     </div>

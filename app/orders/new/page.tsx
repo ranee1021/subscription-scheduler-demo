@@ -19,6 +19,13 @@ export default function NewOrderPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   
+  // URL 파라미터에서 주문 정보 가져오기
+  const [orderParams, setOrderParams] = useState<{
+    period?: PeriodOption;
+    frequency?: DeliveryFrequency;
+    firstDeliveryDate?: string;
+  } | null>(null);
+  
   // 클라이언트 사이드에서 URL 파라미터 읽기 및 상품 정보 로드
   useEffect(() => {
     const loadProduct = async () => {
@@ -26,7 +33,26 @@ export default function NewOrderPage() {
       
       const params = new URLSearchParams(window.location.search);
       const id = params.get("productId");
+      const step = params.get("step");
+      const period = params.get("period") as PeriodOption | null;
+      const frequency = params.get("frequency") as DeliveryFrequency | null;
+      const firstDeliveryDate = params.get("firstDeliveryDate");
+      
       setProductId(id);
+      
+      // URL 파라미터에서 주문 정보 가져오기
+      if (step === "5" && period && frequency && firstDeliveryDate) {
+        setOrderParams({ period, frequency, firstDeliveryDate });
+        setCurrentStep(5 as Step);
+      } else if (!id) {
+        // productId가 없으면 상품 목록으로 리다이렉트
+        router.push("/products");
+        return;
+      } else {
+        // productId는 있지만 step=5가 아니면 상품 상세 페이지로 리다이렉트
+        router.push(`/products/${id}`);
+        return;
+      }
       
       try {
         let productData: Product | null = null;
@@ -70,22 +96,7 @@ export default function NewOrderPage() {
     };
     
     loadProduct();
-    
-    // 주기적으로 URL 파라미터 확인 (다른 페이지에서 돌아올 때)
-    const interval = setInterval(() => {
-      if (typeof window !== "undefined") {
-        const params = new URLSearchParams(window.location.search);
-        const id = params.get("productId");
-        if (id !== productId) {
-          loadProduct();
-        }
-      }
-    }, 500);
-    
-    return () => {
-      clearInterval(interval);
-    };
-  }, [productId]);
+  }, []);
 
   // 기간 옵션 (상품에서 가져오기)
   const periodOptions = useMemo(() => {
@@ -98,6 +109,22 @@ export default function NewOrderPage() {
   const [deliveryFrequency, setDeliveryFrequency] = useState<DeliveryFrequency>("주3회");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
+
+  // URL 파라미터에서 주문 정보 복원
+  useEffect(() => {
+    if (orderParams) {
+      if (orderParams.period) {
+        setSelectedPeriod(orderParams.period);
+      }
+      if (orderParams.frequency) {
+        setDeliveryFrequency(orderParams.frequency);
+      }
+      if (orderParams.firstDeliveryDate) {
+        const date = new Date(orderParams.firstDeliveryDate);
+        setSelectedDate(date);
+      }
+    }
+  }, [orderParams]);
 
   // 선택된 기간이 유효한지 확인하고 없으면 첫 번째 옵션으로 설정
   useEffect(() => {
@@ -296,7 +323,19 @@ export default function NewOrderPage() {
   };
 
   const handlePrevious = () => {
-    if (currentStep > 1) {
+    if (currentStep === 5) {
+      // 스텝 5에서 이전 버튼 클릭 시 상품 상세 페이지로 돌아가되 바텀 시트가 열린 상태로 전달
+      if (productId && selectedDate) {
+        const params = new URLSearchParams({
+          openBottomSheet: "true",
+          step: "4",
+          period: selectedPeriod,
+          frequency: deliveryFrequency,
+          firstDeliveryDate: formatDate(selectedDate),
+        });
+        router.push(`/products/${productId}?${params.toString()}`);
+      }
+    } else if (currentStep > 1) {
       setCurrentStep((prev) => (prev - 1) as Step);
     }
   };
@@ -340,12 +379,15 @@ export default function NewOrderPage() {
     return dateOnly >= firstOnly && dateOnly <= lastOnly;
   };
 
+  // 스텝 5가 아닌 경우 (스텝 1-4는 바텀 시트에서 처리)
+  // 하지만 직접 URL로 접근한 경우를 위해 스텝 1-4도 표시
+
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="mx-auto max-w-4xl">
         {/* Header */}
         <div className="mb-8 border-b border-gray-200 pb-6">
-          <h1 className="text-2xl font-bold text-gray-900">새 주문 만들기</h1>
+          <h1 className="text-2xl font-bold text-gray-900">주문서 작성</h1>
         </div>
 
         {/* 상품 정보 (상단에 항상 표시) */}
@@ -363,7 +405,9 @@ export default function NewOrderPage() {
 
         {/* 스텝별 컨텐츠 */}
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          {/* 1단계: 이용기간 선택 */}
+          {/* 스텝 1-4는 상품 상세 페이지의 바텀 시트에서 처리됨 */}
+          
+          {/* 1단계: 이용기간 선택 (스텝 5로 직접 진입한 경우에만 표시) */}
           {currentStep === 1 && (
             <div>
               <h2 className="mb-6 text-xl font-semibold text-gray-900">
@@ -775,9 +819,6 @@ export default function NewOrderPage() {
           {/* 5단계: 결제 정보 입력 (주문서 작성) */}
           {currentStep === 5 && (
             <div>
-              <h2 className="mb-6 text-xl font-semibold text-gray-900">
-                주문서 작성
-              </h2>
 
               <div className="space-y-6">
                 {/* 주문 요약 정보 표시 */}
