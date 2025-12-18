@@ -18,6 +18,7 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
+  const [isBottomSheetVisible, setIsBottomSheetVisible] = useState(false);
   const [currentStep, setCurrentStep] = useState<Step>(1);
   
   // 주문 옵션 상태
@@ -61,6 +62,7 @@ export default function ProductDetailPage() {
       const firstDeliveryDate = urlParams.get("firstDeliveryDate");
 
       if (openBottomSheet === "true") {
+        setIsBottomSheetVisible(true);
         setIsBottomSheetOpen(true);
         
         // 스텝 설정
@@ -256,7 +258,9 @@ export default function ProductDetailPage() {
   };
 
   const handleOrderClick = () => {
-    setIsBottomSheetOpen(true);
+    // 먼저 컴포넌트를 마운트한 뒤, 다음 틱에 open 상태로 전환하여 자연스러운 진입 애니메이션
+    setIsBottomSheetVisible(true);
+    setIsBottomSheetOpen(false);
     setCurrentStep(1);
     // 초기화
     if (periodOptions.length > 0) {
@@ -264,12 +268,26 @@ export default function ProductDetailPage() {
     }
     setDeliveryFrequency("주3회");
     setSelectedDate(null);
+
+    setTimeout(() => {
+      setIsBottomSheetOpen(true);
+    }, 0);
   };
 
   const handleCloseBottomSheet = () => {
     setIsBottomSheetOpen(false);
     setCurrentStep(1);
   };
+
+  // 닫힐 때는 애니메이션 후 언마운트
+  useEffect(() => {
+    if (!isBottomSheetOpen && isBottomSheetVisible) {
+      const timeout = setTimeout(() => {
+        setIsBottomSheetVisible(false);
+      }, 300); // duration-300 과 동일하게 맞춤
+      return () => clearTimeout(timeout);
+    }
+  }, [isBottomSheetOpen, isBottomSheetVisible]);
 
   const handlePaymentClick = () => {
     // 주문 정보를 URL 파라미터로 전달하여 주문 페이지로 이동
@@ -420,16 +438,22 @@ export default function ProductDetailPage() {
       </div>
 
       {/* 바텀 시트 */}
-      {isBottomSheetOpen && (
+      {isBottomSheetVisible && (
         <>
           {/* 오버레이 */}
           <div
-            className="fixed inset-0 z-40 bg-black/50 transition-opacity"
+            className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 ${
+              isBottomSheetOpen ? "opacity-100" : "opacity-0"
+            }`}
             onClick={handleCloseBottomSheet}
           />
           
           {/* 바텀 시트 */}
-          <div className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-4xl rounded-t-2xl bg-white shadow-2xl transition-transform">
+          <div
+            className={`fixed inset-x-0 bottom-0 z-50 mx-auto max-w-4xl rounded-t-2xl bg-white shadow-2xl transform transition-transform duration-300 ease-out ${
+              isBottomSheetOpen ? "translate-y-0" : "translate-y-full"
+            }`}
+          >
             {/* 드래그 핸들 */}
             <div className="flex justify-center pt-3 pb-2">
               <div className="h-1 w-12 rounded-full bg-gray-300" />
