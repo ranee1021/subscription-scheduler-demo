@@ -527,7 +527,7 @@ export default function NewOrderPage() {
                       {isLastDelivery && (
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-10">
                           <div className="bg-indigo-600 text-white text-[10px] font-medium px-2 py-1 rounded shadow-lg whitespace-nowrap">
-                            식단 종료일
+                            식단 마지막 배송일
                           </div>
                           <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-indigo-600"></div>
                         </div>
