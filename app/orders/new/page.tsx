@@ -10,8 +10,11 @@ import { Product } from "../../../src/domain/product/types";
 
 type PeriodOption = "1주" | "2주" | "4주";
 
+type Step = 1 | 2 | 3 | 4 | 5; // 1: 이용기간, 2: 배송주기, 3: 첫 배송일, 4: 요약, 5: 결제 정보 입력
+
 export default function NewOrderPage() {
   const router = useRouter();
+  const [currentStep, setCurrentStep] = useState<Step>(1);
   const [productId, setProductId] = useState<string | null>(null);
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -240,7 +243,7 @@ export default function NewOrderPage() {
     }
   };
 
-  // 주문 생성 핸들러
+  // 주문 생성 핸들러 (결제 정보 입력 후 주문 완료 버튼에서 사용)
   const handleCreateOrder = async () => {
     if (!selectedDate || schedules.length === 0) {
       alert("첫 배송일을 선택해주세요.");
@@ -273,9 +276,6 @@ export default function NewOrderPage() {
         // 생성된 주문 ID 저장
         setCreatedOrderId(newOrder.id);
         
-        // 상태 초기화 (다음 주문을 위해)
-        setSelectedDate(null);
-        
         // 주문 완료 알럿 표시 후 주문 상세 페이지로 리다이렉트
         alert("주문이 완료되었습니다.");
         router.push(`/orders/${newOrder.id}`);
@@ -285,6 +285,19 @@ export default function NewOrderPage() {
     } catch (error) {
       console.error("주문 생성 실패:", error);
       alert("주문 생성 중 오류가 발생했습니다.");
+    }
+  };
+
+  // 스텝 네비게이션 핸들러
+  const handleNext = () => {
+    if (currentStep < 5) {
+      setCurrentStep((prev) => (prev + 1) as Step);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentStep > 1) {
+      setCurrentStep((prev) => (prev - 1) as Step);
     }
   };
 
@@ -329,339 +342,476 @@ export default function NewOrderPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-4xl">
         {/* Header */}
         <div className="mb-8 border-b border-gray-200 pb-6">
           <h1 className="text-2xl font-bold text-gray-900">새 주문 만들기</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            상품과 이용기간을 선택하고 첫 배송일을 캘린더에서 선택하세요.
-          </p>
         </div>
 
-        {/* 상품 정보 및 이용기간 선택 */}
-        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            상품 정보
-          </h2>
-          {product ? (
-            <>
-              <div className="mb-6">
-                <p className="text-xl font-bold text-gray-900">{product.name}</p>
-                {product.description && (
-                  <p className="mt-1 text-sm text-gray-600">{product.description}</p>
-                )}
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  이용기간 선택
-                </label>
-                <div className="grid grid-cols-3 gap-3">
-                  {periodOptions.map((option) => (
-                    <button
-                      key={option.period}
-                      type="button"
-                      onClick={() => setSelectedPeriod(option.period)}
-                      className={`rounded-lg border-2 px-4 py-3 text-sm font-semibold transition ${
-                        selectedPeriod === option.period
-                          ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                          : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
-                      }`}
-                    >
-                      <div>{option.period}</div>
-                      <div className="mt-1 text-base">
-                        {option.price.toLocaleString()}원
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="mb-6 text-center text-gray-400">
-              상품 정보를 불러올 수 없습니다.
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-4 rounded-lg bg-gray-50 p-4">
-            <div>
-              <p className="text-xs text-gray-500">판매금액</p>
-              <p className="mt-1 text-lg font-bold text-gray-900">
-                {selectedPrice.toLocaleString()}원
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">1일 식단(2팩) 단가</p>
-              <p className="mt-1 text-lg font-bold text-indigo-600">
-                {dailyPrice.toLocaleString()}원
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              배송 주기 선택
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setDeliveryFrequency("주3회")}
-                className={`rounded-lg border-2 px-4 py-3 text-sm font-semibold transition ${
-                  deliveryFrequency === "주3회"
-                    ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                주 3회
-              </button>
-              <button
-                type="button"
-                onClick={() => setDeliveryFrequency("매일배송")}
-                className={`rounded-lg border-2 px-4 py-3 text-sm font-semibold transition ${
-                  deliveryFrequency === "매일배송"
-                    ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                매일 배송(일요일 제외)
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Left: Calendar Card */}
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              첫 배송일 선택
+        {/* 상품 정보 (상단에 항상 표시) */}
+        {product && (
+          <div className="mb-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="mb-2 text-lg font-semibold text-gray-900">
+              상품 정보
             </h2>
-
-            {/* Calendar */}
-            <div className="calendar">
-              {/* Week Days */}
-              <div className="mb-2 grid grid-cols-7 gap-1">
-                {weekDays.map((day) => (
-                  <div
-                    key={day}
-                    className="py-2 text-center text-xs font-medium text-gray-500"
-                  >
-                    {day}
-                  </div>
-                ))}
-              </div>
-
-              {/* Calendar Days */}
-              <div className="grid grid-cols-7 gap-1">
-                {/* 첫 번째 날짜 앞의 빈 셀들 (일요일부터 첫 번째 날짜까지) */}
-                {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-                  <div key={`empty-${i}`} className="aspect-square" />
-                ))}
-                
-                {calendarDays.map((date, index) => {
-                  const isSelected = selectedDate && isSameDate(selectedDate, date);
-                  const isDelivery = isDeliveryDate(date);
-                  const isToday = isSameDate(date, new Date());
-                  const isSelectable = isDateSelectable(date);
-                  const sequence = getDeliverySequence(date);
-                  const isFirstDelivery = isFirstDeliveryDate(date);
-                  const isLastDelivery = isLastDeliveryDate(date);
-                  const inDeliveryPeriod = isInDeliveryPeriod(date);
-
-                  // 배경색 및 스타일 결정 (우선순위: 선택된 날짜 > 오늘 > 기본)
-                  // 배송예정일은 배경 없이 차수 레이블만 표시
-                  let bgClass = "";
-                  let cursorClass = "";
-                  let borderClass = "";
-                  
-                  if (!isSelectable) {
-                    // 선택 불가 날짜: 연한 회색 텍스트, hover 없음, default 커서, 낮은 대비, 점선 없음
-                    bgClass = "text-gray-300";
-                    cursorClass = "cursor-default";
-                    borderClass = "";
-                  } else if (isSelected) {
-                    // 첫 배송일 선택 (최우선): 점선 테두리 없음
-                    bgClass = "bg-indigo-600 text-white font-semibold";
-                    cursorClass = "cursor-pointer";
-                    borderClass = "";
-                  } else if (isToday) {
-                    // 오늘: 점선 테두리 적용
-                    bgClass = "bg-gray-100 text-gray-900 font-medium";
-                    cursorClass = "cursor-pointer";
-                    borderClass = "border border-dashed border-gray-300";
-                  } else {
-                    // 선택 가능한 날짜: 기본 텍스트 색상, 항상 보이는 점선 테두리, pointer 커서
-                    bgClass = "text-gray-700";
-                    cursorClass = "cursor-pointer";
-                    borderClass = "border border-dashed border-gray-300";
-                  }
-
-                  return (
-                    <div key={index} className="relative">
-                      {/* 배송 기간 배경 (가장 아래 레벨) */}
-                      {inDeliveryPeriod && (
-                        <div className="absolute inset-0 bg-indigo-50/30 rounded-lg pointer-events-none" />
-                      )}
-                      
-                      <button
-                        type="button"
-                        onClick={() => handleDateClick(date)}
-                        disabled={!isSelectable}
-                        className={`relative aspect-square w-full rounded-lg text-sm transition ${bgClass} ${cursorClass} ${borderClass} disabled:hover:bg-transparent disabled:opacity-60`}
-                      >
-                        <div>{date.getDate()}</div>
-                        {isDelivery && sequence && (
-                          <div className="absolute top-0.5 right-0.5 text-[10px] font-bold bg-indigo-200 text-indigo-800 rounded px-1">
-                            {sequence}차
-                          </div>
-                        )}
-                      </button>
-                      {isFirstDelivery && (
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-10">
-                          <div className="bg-indigo-600 text-white text-[10px] font-medium px-2 py-1 rounded shadow-lg whitespace-nowrap">
-                            식단 시작일
-                          </div>
-                          <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-indigo-600"></div>
-                        </div>
-                      )}
-                      {isLastDelivery && (
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-10">
-                          <div className="bg-indigo-600 text-white text-[10px] font-medium px-2 py-1 rounded shadow-lg whitespace-nowrap">
-                            식단 마지막 배송일
-                          </div>
-                          <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-indigo-600"></div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Legend */}
-              <div className="mt-4 flex flex-wrap gap-4 text-xs text-gray-600">
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 rounded bg-indigo-600" />
-                  <span>선택된 첫 배송일</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 rounded border border-dashed border-gray-300" />
-                  <span>선택 가능 날짜</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 rounded bg-indigo-50/30 border border-indigo-200" />
-                  <span>정기배송 기간</span>
-                </div>
-              </div>
-            </div>
+            <p className="text-xl font-bold text-gray-900">{product.name}</p>
+            {product.description && (
+              <p className="mt-1 text-sm text-gray-600">{product.description}</p>
+            )}
           </div>
+        )}
 
-          {/* Right: Schedule Preview Card */}
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              배송 스케줄 및 결제 미리보기
-            </h2>
-
-            {!selectedDate ? (
-              <div className="flex h-64 items-center justify-center text-sm text-gray-400">
-                첫 배송일을 선택하면 미리보기가 표시됩니다.
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* 주문 요약 */}
-                <div className="rounded-lg bg-indigo-50 p-4">
-                  <p className="text-sm font-medium text-indigo-900">
-                    주문 요약
-                  </p>
-                  <p className="mt-1 text-sm text-indigo-700">
-                    첫 배송일: {formatDateKorean(selectedDate)}
-                  </p>
-                  <p className="mt-1 text-sm text-indigo-700">
-                    이용기간: {selectedPeriod} ({schedules.length}회 배송)
-                  </p>
-                  <p className="mt-2 text-lg font-bold text-indigo-700">
-                    주문 금액: {selectedPrice.toLocaleString()}원
-                  </p>
-                </div>
-
-                {/* 마지막 배송예정일 표시 */}
-                {lastDeliveryDate && (
-                  <div className="rounded-lg bg-gray-50 p-4">
-                    <p className="text-sm font-medium text-gray-900">
-                      마지막 배송예정일
-                    </p>
-                    <p className="mt-1 text-lg font-bold text-gray-700">
-                      {formatDateKorean(lastDeliveryDate)}
-                    </p>
-                  </div>
-                )}
-
-                {/* 결제 시도일 */}
-                {paymentAttempts.length > 0 && (
-                  <div>
-                    <h3 className="mb-3 text-sm font-semibold text-gray-700">
-                      결제 시도일 (마지막 배송예정일 기준)
-                    </h3>
-                    <div className="space-y-2">
-                      {paymentAttempts.map((attempt) => (
-                        <div
-                          key={attempt.daysBefore}
-                          className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2"
+        {/* 스텝별 컨텐츠 */}
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          {/* 1단계: 이용기간 선택 */}
+          {currentStep === 1 && (
+            <div>
+              <h2 className="mb-6 text-xl font-semibold text-gray-900">
+                이용기간을 선택해주세요
+              </h2>
+              {product ? (
+                <>
+                  <div className="mb-6">
+                    <div className="grid grid-cols-3 gap-3">
+                      {periodOptions.map((option) => (
+                        <button
+                          key={option.period}
+                          type="button"
+                          onClick={() => setSelectedPeriod(option.period)}
+                          className={`rounded-lg border-2 px-4 py-3 text-sm font-semibold transition ${
+                            selectedPeriod === option.period
+                              ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                              : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                          }`}
                         >
-                          <span className="text-sm font-medium text-gray-700">
-                            D-{attempt.daysBefore}
-                          </span>
-                          <span className="text-sm text-gray-600">
-                            {formatDateKorean(attempt.attemptDate)}
-                          </span>
-                        </div>
+                          <div>{option.period}</div>
+                          <div className="mt-1 text-base">
+                            {option.price.toLocaleString()}원
+                          </div>
+                        </button>
                       ))}
                     </div>
                   </div>
-                )}
 
-                {/* 배송 스케줄 테이블 */}
-                <div>
-                  <h3 className="mb-3 text-sm font-semibold text-gray-700">
-                    배송 스케줄 (총 {schedules.length}회)
-                  </h3>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            회차
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            배송예정일
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                            생산기준일
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200 bg-white">
-                        {schedules.map((schedule) => (
-                          <tr
-                            key={schedule.sequence}
-                            className="hover:bg-gray-50"
-                          >
-                            <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
-                              {schedule.sequence}회차
-                            </td>
-                            <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
-                              {formatDateKorean(schedule.originalDeliveryDate)}
-                            </td>
-                            <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
-                              {formatDateKorean(schedule.productionDate)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="grid grid-cols-2 gap-4 rounded-lg bg-gray-50 p-4">
+                    <div>
+                      <p className="text-xs text-gray-500">판매금액</p>
+                      <p className="mt-1 text-lg font-bold text-gray-900">
+                        {selectedPrice.toLocaleString()}원
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">1일 식단(2팩) 단가</p>
+                      <p className="mt-1 text-lg font-bold text-indigo-600">
+                        {dailyPrice.toLocaleString()}원
+                      </p>
+                    </div>
                   </div>
+                </>
+              ) : (
+                <div className="mb-6 text-center text-gray-400">
+                  상품 정보를 불러올 수 없습니다.
+                </div>
+              )}
+
+              {/* 네비게이션 버튼 */}
+              <div className="mt-8 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handlePrevious}
+                  disabled={currentStep === 1}
+                  className="rounded-lg border border-gray-300 bg-white px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  이전
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="rounded-lg bg-indigo-600 px-6 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                >
+                  다음
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 2단계: 배송 주기 선택 */}
+          {currentStep === 2 && (
+            <div>
+              <h2 className="mb-6 text-xl font-semibold text-gray-900">
+                배송 주기를 선택해주세요
+              </h2>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeliveryFrequency("주3회")}
+                  className={`rounded-lg border-2 px-4 py-3 text-sm font-semibold transition ${
+                    deliveryFrequency === "주3회"
+                      ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                      : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  주 3회
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeliveryFrequency("매일배송")}
+                  className={`rounded-lg border-2 px-4 py-3 text-sm font-semibold transition ${
+                    deliveryFrequency === "매일배송"
+                      ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                      : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  매일 배송(일요일 제외)
+                </button>
+              </div>
+
+              {/* 네비게이션 버튼 */}
+              <div className="mt-8 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handlePrevious}
+                  className="rounded-lg border border-gray-300 bg-white px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  이전
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="rounded-lg bg-indigo-600 px-6 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                >
+                  다음
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 3단계: 첫 배송일 선택 */}
+          {currentStep === 3 && (
+            <div>
+              <h2 className="mb-6 text-xl font-semibold text-gray-900">
+                첫 배송일을 선택하세요
+              </h2>
+
+              {/* Calendar */}
+              <div className="calendar">
+                {/* Week Days */}
+                <div className="mb-2 grid grid-cols-7 gap-1">
+                  {weekDays.map((day) => (
+                    <div
+                      key={day}
+                      className="py-2 text-center text-xs font-medium text-gray-500"
+                    >
+                      {day}
+                    </div>
+                  ))}
                 </div>
 
-                {/* 주문 생성 버튼 */}
+                {/* Calendar Days */}
+                <div className="grid grid-cols-7 gap-1">
+                  {/* 첫 번째 날짜 앞의 빈 셀들 (일요일부터 첫 번째 날짜까지) */}
+                  {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+                    <div key={`empty-${i}`} className="aspect-square" />
+                  ))}
+                  
+                  {calendarDays.map((date, index) => {
+                    const isSelected = selectedDate && isSameDate(selectedDate, date);
+                    const isDelivery = isDeliveryDate(date);
+                    const isToday = isSameDate(date, new Date());
+                    const isSelectable = isDateSelectable(date);
+                    const sequence = getDeliverySequence(date);
+                    const isFirstDelivery = isFirstDeliveryDate(date);
+                    const isLastDelivery = isLastDeliveryDate(date);
+                    const inDeliveryPeriod = isInDeliveryPeriod(date);
+
+                    // 배경색 및 스타일 결정 (우선순위: 선택된 날짜 > 오늘 > 기본)
+                    // 배송예정일은 배경 없이 차수 레이블만 표시
+                    let bgClass = "";
+                    let cursorClass = "";
+                    let borderClass = "";
+                    
+                    if (!isSelectable) {
+                      // 선택 불가 날짜: 연한 회색 텍스트, hover 없음, default 커서, 낮은 대비, 점선 없음
+                      bgClass = "text-gray-300";
+                      cursorClass = "cursor-default";
+                      borderClass = "";
+                    } else if (isSelected) {
+                      // 첫 배송일 선택 (최우선): 점선 테두리 없음
+                      bgClass = "bg-indigo-600 text-white font-semibold";
+                      cursorClass = "cursor-pointer";
+                      borderClass = "";
+                    } else if (isToday) {
+                      // 오늘: 점선 테두리 적용
+                      bgClass = "bg-gray-100 text-gray-900 font-medium";
+                      cursorClass = "cursor-pointer";
+                      borderClass = "border border-dashed border-gray-300";
+                    } else {
+                      // 선택 가능한 날짜: 기본 텍스트 색상, 항상 보이는 점선 테두리, pointer 커서
+                      bgClass = "text-gray-700";
+                      cursorClass = "cursor-pointer";
+                      borderClass = "border border-dashed border-gray-300";
+                    }
+
+                    return (
+                      <div key={index} className="relative">
+                        {/* 배송 기간 배경 (가장 아래 레벨) */}
+                        {inDeliveryPeriod && (
+                          <div className="absolute inset-0 bg-indigo-50/30 rounded-lg pointer-events-none" />
+                        )}
+                        
+                        <button
+                          type="button"
+                          onClick={() => handleDateClick(date)}
+                          disabled={!isSelectable}
+                          className={`relative aspect-square w-full rounded-lg text-sm transition ${bgClass} ${cursorClass} ${borderClass} disabled:hover:bg-transparent disabled:opacity-60`}
+                        >
+                          <div>{date.getDate()}</div>
+                          {isDelivery && sequence && (
+                            <div className="absolute top-0.5 right-0.5 text-[10px] font-bold bg-indigo-200 text-indigo-800 rounded px-1">
+                              {sequence}차
+                            </div>
+                          )}
+                        </button>
+                        {isFirstDelivery && (
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-10">
+                            <div className="bg-indigo-600 text-white text-[10px] font-medium px-2 py-1 rounded shadow-lg whitespace-nowrap">
+                              식단 시작일
+                            </div>
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-indigo-600"></div>
+                          </div>
+                        )}
+                        {isLastDelivery && (
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-10">
+                            <div className="bg-indigo-600 text-white text-[10px] font-medium px-2 py-1 rounded shadow-lg whitespace-nowrap">
+                              식단 마지막 배송일
+                            </div>
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-indigo-600"></div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Legend */}
+                <div className="mt-4 flex flex-wrap gap-4 text-xs text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 rounded bg-indigo-600" />
+                    <span>선택된 첫 배송일</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 rounded border border-dashed border-gray-300" />
+                    <span>선택 가능 날짜</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 rounded bg-indigo-50/30 border border-indigo-200" />
+                    <span>정기배송 기간</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 네비게이션 버튼 */}
+              <div className="mt-8 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handlePrevious}
+                  className="rounded-lg border border-gray-300 bg-white px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  이전
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={!selectedDate}
+                  className="rounded-lg bg-indigo-600 px-6 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  다음
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 4단계: 배송 스케줄 및 결제 금액 요약 */}
+          {currentStep === 4 && (
+            <div>
+              <h2 className="mb-6 text-xl font-semibold text-gray-900">
+                배송 스케줄 및 결제 금액 요약
+              </h2>
+
+              {!selectedDate ? (
+                <div className="flex h-64 items-center justify-center text-sm text-gray-400">
+                  첫 배송일을 선택해주세요.
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* 주문 요약 */}
+                  <div className="rounded-lg bg-indigo-50 p-4">
+                    <p className="text-sm font-medium text-indigo-900">
+                      주문 요약
+                    </p>
+                    <p className="mt-1 text-sm text-indigo-700">
+                      첫 배송일: {formatDateKorean(selectedDate)}
+                    </p>
+                    <p className="mt-1 text-sm text-indigo-700">
+                      이용기간: {selectedPeriod} ({schedules.length}회 배송)
+                    </p>
+                    <p className="mt-1 text-sm text-indigo-700">
+                      배송 주기: {deliveryFrequency}
+                    </p>
+                    <p className="mt-2 text-lg font-bold text-indigo-700">
+                      주문 금액: {selectedPrice.toLocaleString()}원
+                    </p>
+                  </div>
+
+                  {/* 마지막 배송예정일 표시 */}
+                  {lastDeliveryDate && (
+                    <div className="rounded-lg bg-gray-50 p-4">
+                      <p className="text-sm font-medium text-gray-900">
+                        마지막 배송예정일
+                      </p>
+                      <p className="mt-1 text-lg font-bold text-gray-700">
+                        {formatDateKorean(lastDeliveryDate)}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* 결제 시도일 */}
+                  {paymentAttempts.length > 0 && (
+                    <div>
+                      <h3 className="mb-3 text-sm font-semibold text-gray-700">
+                        결제 시도일 (마지막 배송예정일 기준)
+                      </h3>
+                      <div className="space-y-2">
+                        {paymentAttempts.map((attempt) => (
+                          <div
+                            key={attempt.daysBefore}
+                            className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2"
+                          >
+                            <span className="text-sm font-medium text-gray-700">
+                              D-{attempt.daysBefore}
+                            </span>
+                            <span className="text-sm text-gray-600">
+                              {formatDateKorean(attempt.attemptDate)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 배송 스케줄 테이블 */}
+                  <div>
+                    <h3 className="mb-3 text-sm font-semibold text-gray-700">
+                      배송 스케줄 (총 {schedules.length}회)
+                    </h3>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                              회차
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                              배송예정일
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                              생산기준일
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 bg-white">
+                          {schedules.map((schedule) => (
+                            <tr
+                              key={schedule.sequence}
+                              className="hover:bg-gray-50"
+                            >
+                              <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
+                                {schedule.sequence}회차
+                              </td>
+                              <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
+                                {formatDateKorean(schedule.originalDeliveryDate)}
+                              </td>
+                              <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
+                                {formatDateKorean(schedule.productionDate)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* 결제하기 버튼 */}
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <button
+                      type="button"
+                      onClick={handleNext}
+                      disabled={!selectedDate || schedules.length === 0}
+                      className={`w-full rounded-lg px-4 py-3 text-base font-semibold text-white transition ${
+                        !selectedDate || schedules.length === 0
+                          ? "bg-gray-300 cursor-not-allowed"
+                          : "bg-indigo-600 hover:bg-indigo-700"
+                      }`}
+                    >
+                      결제하기
+                    </button>
+                  </div>
+
+                  {/* 네비게이션 버튼 */}
+                  <div className="mt-4 flex justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={handlePrevious}
+                      className="rounded-lg border border-gray-300 bg-white px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      이전
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 5단계: 결제 정보 입력 (주문서 작성) */}
+          {currentStep === 5 && (
+            <div>
+              <h2 className="mb-6 text-xl font-semibold text-gray-900">
+                주문서 작성
+              </h2>
+
+              <div className="space-y-6">
+                {/* 주문 요약 정보 표시 */}
+                {selectedDate && (
+                  <div className="rounded-lg bg-gray-50 p-4">
+                    <p className="text-sm font-medium text-gray-900 mb-2">
+                      주문 정보
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      상품: {product?.name}
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      이용기간: {selectedPeriod} ({schedules.length}회 배송)
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      배송 주기: {deliveryFrequency}
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      첫 배송일: {formatDateKorean(selectedDate)}
+                    </p>
+                    <p className="mt-2 text-base font-bold text-gray-900">
+                      결제 금액: {selectedPrice.toLocaleString()}원
+                    </p>
+                  </div>
+                )}
+
+                {/* 결제 정보 입력 영역 (추후 확장 가능) */}
+                <div className="rounded-lg border border-gray-200 p-6">
+                  <p className="text-sm text-gray-500 mb-4">
+                    결제 정보 입력 영역 (추후 구현)
+                  </p>
+                </div>
+
+                {/* 주문 완료 버튼 */}
                 <div className="mt-6 pt-6 border-t border-gray-200">
                   <button
                     type="button"
@@ -673,24 +823,23 @@ export default function NewOrderPage() {
                         : "bg-indigo-600 hover:bg-indigo-700"
                     }`}
                   >
-                    주문 생성
+                    주문 완료
                   </button>
-                  
-                  {/* 주문 생성 성공 메시지 */}
-                  {createdOrderId && (
-                    <div className="mt-4 rounded-lg bg-green-50 border border-green-200 p-4">
-                      <p className="text-sm font-medium text-green-800">
-                        주문이 생성되었습니다!
-                      </p>
-                      <p className="mt-1 text-xs text-green-700">
-                        주문 ID: {createdOrderId}
-                      </p>
-                    </div>
-                  )}
+                </div>
+
+                {/* 네비게이션 버튼 */}
+                <div className="mt-4 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={handlePrevious}
+                    className="rounded-lg border border-gray-300 bg-white px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    이전
+                  </button>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
