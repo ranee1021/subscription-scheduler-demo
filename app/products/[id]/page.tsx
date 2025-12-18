@@ -7,9 +7,18 @@ import Link from "next/link";
 import { DeliverySchedule, DeliveryFrequency } from "../../../src/domain/schedule/types";
 import { generateDeliverySchedules } from "../../../src/domain/schedule/generateSchedule";
 import { PaymentAttempt, generatePaymentAttempts } from "../../../src/domain/payment/generatePayment";
+import {
+  generateMonthlyMealPlan,
+} from "../../../src/domain/meal/dummyData";
 
-type PeriodOption = "1주" | "2주" | "4주";
-type Step = 1 | 2 | 3 | 4;
+const dayLabels = ["일", "월", "화", "수", "목", "금", "토"];
+
+function getMonthMeta(year: number, month: number) {
+  const firstDay = new Date(year, month - 1, 1);
+  const firstWeekday = firstDay.getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  return { firstWeekday, daysInMonth };
+}
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -19,22 +28,23 @@ export default function ProductDetailPage() {
   const [loading, setLoading] = useState(true);
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
   const [isBottomSheetVisible, setIsBottomSheetVisible] = useState(false);
-  const [currentStep, setCurrentStep] = useState<Step>(1);
-  
-  // 주문 옵션 상태
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
+
+  type PeriodOption = "1주" | "2주" | "4주";
+
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>("1주");
-  const [deliveryFrequency, setDeliveryFrequency] = useState<DeliveryFrequency>("주3회");
+  const [deliveryFrequency, setDeliveryFrequency] =
+    useState<DeliveryFrequency>("주3회");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   useEffect(() => {
     const fetchProduct = async () => {
       if (!productId) return;
-      
+
       try {
         const response = await fetch(`/api/products/${productId}`);
         const result = await response.json();
         if (result.success) {
-          // Date 객체 복원
           setProduct({
             ...result.data,
             createdAt: new Date(result.data.createdAt),
@@ -51,83 +61,40 @@ export default function ProductDetailPage() {
     };
 
     fetchProduct();
-
-    // URL 파라미터 확인하여 바텀 시트 자동 열기
-    if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search);
-      const openBottomSheet = urlParams.get("openBottomSheet");
-      const step = urlParams.get("step");
-      const period = urlParams.get("period") as PeriodOption | null;
-      const frequency = urlParams.get("frequency") as DeliveryFrequency | null;
-      const firstDeliveryDate = urlParams.get("firstDeliveryDate");
-
-      if (openBottomSheet === "true") {
-        setIsBottomSheetVisible(true);
-        setIsBottomSheetOpen(true);
-        
-        // 스텝 설정
-        if (step) {
-          const stepNum = parseInt(step);
-          if (stepNum >= 1 && stepNum <= 4) {
-            setCurrentStep(stepNum as Step);
-          }
-        }
-
-        // 주문 옵션 복원
-        if (period) {
-          setSelectedPeriod(period);
-        }
-        if (frequency) {
-          setDeliveryFrequency(frequency);
-        }
-        if (firstDeliveryDate) {
-          const date = new Date(firstDeliveryDate);
-          setSelectedDate(date);
-        }
-
-        // URL에서 파라미터 제거 (히스토리 정리)
-        const newUrl = new URL(window.location.href);
-        newUrl.searchParams.delete("openBottomSheet");
-        newUrl.searchParams.delete("step");
-        newUrl.searchParams.delete("period");
-        newUrl.searchParams.delete("frequency");
-        newUrl.searchParams.delete("firstDeliveryDate");
-        window.history.replaceState({}, "", newUrl.toString());
-      }
-    }
   }, [productId]);
 
   const formatDate = (date: Date): string => {
     return new Date(date).toLocaleDateString("ko-KR");
   };
 
-  // 기간 옵션 (상품에서 가져오기)
+  const isMealPackage = product?.kind === "식단";
+
   const periodOptions = useMemo(() => {
     return product?.periodOptions || [];
   }, [product]);
 
-  // 선택된 기간이 유효한지 확인하고 없으면 첫 번째 옵션으로 설정
   useEffect(() => {
     if (periodOptions.length > 0) {
-      const isValidPeriod = periodOptions.some((opt) => opt.period === selectedPeriod);
+      const isValidPeriod = periodOptions.some(
+        (opt) => opt.period === selectedPeriod
+      );
       if (!isValidPeriod) {
-        setSelectedPeriod(periodOptions[0].period);
+        setSelectedPeriod(periodOptions[0].period as PeriodOption);
       }
     }
   }, [periodOptions, selectedPeriod]);
 
-  // 선택된 기간의 가격
   const selectedPrice = useMemo(() => {
-    return periodOptions.find((opt) => opt.period === selectedPeriod)?.price || 0;
+    return (
+      periodOptions.find((opt) => opt.period === selectedPeriod)?.price || 0
+    );
   }, [selectedPeriod, periodOptions]);
 
-  // 1일 식단(2팩) 단가 계산
   const dailyPrice = useMemo(() => {
     const weeks = parseInt(selectedPeriod.replace("주", ""));
     return Math.round(selectedPrice / (weeks * 7));
   }, [selectedPeriod, selectedPrice]);
 
-  // 날짜 포맷팅 (YYYY-MM-DD)
   const formatDateInput = (date: Date): string => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -135,7 +102,6 @@ export default function ProductDetailPage() {
     return `${year}-${month}-${day}`;
   };
 
-  // 날짜 포맷팅 (YYYY년 MM월 DD일)
   const formatDateKorean = (date: Date): string => {
     const year = date.getFullYear();
     const month = date.getMonth() + 1;
@@ -143,7 +109,6 @@ export default function ProductDetailPage() {
     return `${year}년 ${month}월 ${day}일`;
   };
 
-  // 날짜 비교 (년/월/일만)
   const isSameDate = (date1: Date, date2: Date): boolean => {
     return (
       date1.getFullYear() === date2.getFullYear() &&
@@ -152,36 +117,45 @@ export default function ProductDetailPage() {
     );
   };
 
-  // 오늘 기준 6주차 날짜 배열 생성
   const getCalendarWeeks = (lastDeliveryDate: Date | null): Date[] => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const todayDayOfWeek = today.getDay();
     const daysToMonday = todayDayOfWeek === 0 ? -6 : 1 - todayDayOfWeek;
-    
+
     const firstMonday = new Date(today);
     firstMonday.setDate(today.getDate() + daysToMonday);
     firstMonday.setHours(0, 0, 0, 0);
-    
+
     let weeksToShow = 6;
-    
+
     if (lastDeliveryDate) {
-      const lastDeliveryDateOnly = new Date(lastDeliveryDate.getFullYear(), lastDeliveryDate.getMonth(), lastDeliveryDate.getDate());
+      const lastDeliveryDateOnly = new Date(
+        lastDeliveryDate.getFullYear(),
+        lastDeliveryDate.getMonth(),
+        lastDeliveryDate.getDate()
+      );
       const lastDayOf6Weeks = new Date(firstMonday);
       lastDayOf6Weeks.setDate(firstMonday.getDate() + 41);
-      
+
       if (lastDeliveryDateOnly > lastDayOf6Weeks) {
         const lastDeliveryDayOfWeek = lastDeliveryDateOnly.getDay();
-        const daysToLastMonday = lastDeliveryDayOfWeek === 0 ? -6 : 1 - lastDeliveryDayOfWeek;
+        const daysToLastMonday =
+          lastDeliveryDayOfWeek === 0 ? -6 : 1 - lastDeliveryDayOfWeek;
         const lastDeliveryMonday = new Date(lastDeliveryDateOnly);
-        lastDeliveryMonday.setDate(lastDeliveryDateOnly.getDate() + daysToLastMonday);
-        
-        const daysDiff = Math.ceil((lastDeliveryMonday.getTime() - firstMonday.getTime()) / (1000 * 60 * 60 * 24));
+        lastDeliveryMonday.setDate(
+          lastDeliveryDateOnly.getDate() + daysToLastMonday
+        );
+
+        const daysDiff = Math.ceil(
+          (lastDeliveryMonday.getTime() - firstMonday.getTime()) /
+            (1000 * 60 * 60 * 24)
+        );
         weeksToShow = Math.ceil(daysDiff / 7) + 1;
       }
     }
-    
+
     const calendarDays: Date[] = [];
     const totalDays = weeksToShow * 7;
     for (let i = 0; i < totalDays; i++) {
@@ -189,7 +163,7 @@ export default function ProductDetailPage() {
       date.setDate(firstMonday.getDate() + i);
       calendarDays.push(date);
     }
-    
+
     return calendarDays;
   };
 
@@ -226,16 +200,16 @@ export default function ProductDetailPage() {
     const minDate = new Date(today);
     minDate.setDate(today.getDate() + 2);
     minDate.setHours(0, 0, 0, 0);
-    
+
     const maxDate = new Date(today);
     maxDate.setDate(today.getDate() + 21);
     maxDate.setHours(23, 59, 59, 999);
-    
+
     const checkDate = new Date(date);
     checkDate.setHours(0, 0, 0, 0);
-    
+
     if (checkDate.getDay() === 0) return false;
-    
+
     return checkDate >= minDate && checkDate <= maxDate;
   };
 
@@ -247,24 +221,48 @@ export default function ProductDetailPage() {
 
   const handleNext = () => {
     if (currentStep < 4) {
-      setCurrentStep((prev) => (prev + 1) as Step);
+      setCurrentStep((prev) => (prev + 1) as 1 | 2 | 3 | 4);
     }
   };
 
   const handlePrevious = () => {
     if (currentStep > 1) {
-      setCurrentStep((prev) => (prev - 1) as Step);
+      setCurrentStep((prev) => (prev - 1) as 1 | 2 | 3 | 4);
     }
   };
 
   const handleOrderClick = () => {
-    // 먼저 컴포넌트를 마운트한 뒤, 다음 틱에 open 상태로 전환하여 자연스러운 진입 애니메이션
+    if (!product) return;
+
+    if (product.kind === "단품") {
+      const defaultPeriod = (product.periodOptions[0]?.period || "1주") as PeriodOption;
+      const defaultFrequency: DeliveryFrequency = "주3회";
+
+      const today = new Date();
+      const first = new Date(today);
+      first.setDate(today.getDate() + 2);
+      first.setHours(0, 0, 0, 0);
+      if (first.getDay() === 0) {
+        first.setDate(first.getDate() + 1);
+      }
+
+      const params = new URLSearchParams({
+        productId: productId,
+        step: "5",
+        period: defaultPeriod,
+        frequency: defaultFrequency,
+        firstDeliveryDate: formatDateInput(first),
+      });
+
+      router.push(`/orders/new?${params.toString()}`);
+      return;
+    }
+
     setIsBottomSheetVisible(true);
     setIsBottomSheetOpen(false);
     setCurrentStep(1);
-    // 초기화
     if (periodOptions.length > 0) {
-      setSelectedPeriod(periodOptions[0].period);
+      setSelectedPeriod(periodOptions[0].period as PeriodOption);
     }
     setDeliveryFrequency("주3회");
     setSelectedDate(null);
@@ -279,18 +277,16 @@ export default function ProductDetailPage() {
     setCurrentStep(1);
   };
 
-  // 닫힐 때는 애니메이션 후 언마운트
   useEffect(() => {
     if (!isBottomSheetOpen && isBottomSheetVisible) {
       const timeout = setTimeout(() => {
         setIsBottomSheetVisible(false);
-      }, 300); // duration-300 과 동일하게 맞춤
+      }, 300);
       return () => clearTimeout(timeout);
     }
   }, [isBottomSheetOpen, isBottomSheetVisible]);
 
   const handlePaymentClick = () => {
-    // 주문 정보를 URL 파라미터로 전달하여 주문 페이지로 이동
     if (!selectedDate || schedules.length === 0) {
       alert("첫 배송일을 선택해주세요.");
       return;
@@ -307,28 +303,63 @@ export default function ProductDetailPage() {
     router.push(`/orders/new?${params.toString()}`);
   };
 
-  // 캘린더 렌더링
   const calendarDays = getCalendarWeeks(lastDeliveryDate);
   const weekDays = ["일", "월", "화", "수", "목", "금", "토"];
   const firstDayOfWeek = calendarDays.length > 0 ? calendarDays[0].getDay() : 0;
-  
-  const firstDeliveryDate = schedules.length > 0 ? schedules[0].originalDeliveryDate : null;
+
+  const firstDeliveryDate =
+    schedules.length > 0 ? schedules[0].originalDeliveryDate : null;
   const isFirstDeliveryDate = (date: Date): boolean => {
     return firstDeliveryDate ? isSameDate(date, firstDeliveryDate) : false;
   };
   const isLastDeliveryDate = (date: Date): boolean => {
     return lastDeliveryDate ? isSameDate(date, lastDeliveryDate) : false;
   };
-  
+
   const isInDeliveryPeriod = (date: Date): boolean => {
     if (!firstDeliveryDate || !lastDeliveryDate) return false;
-    
+
     const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const firstOnly = new Date(firstDeliveryDate.getFullYear(), firstDeliveryDate.getMonth(), firstDeliveryDate.getDate());
-    const lastOnly = new Date(lastDeliveryDate.getFullYear(), lastDeliveryDate.getMonth(), lastDeliveryDate.getDate());
-    
+    const firstOnly = new Date(
+      firstDeliveryDate.getFullYear(),
+      firstDeliveryDate.getMonth(),
+      firstDeliveryDate.getDate()
+    );
+    const lastOnly = new Date(
+      lastDeliveryDate.getFullYear(),
+      lastDeliveryDate.getMonth(),
+      lastDeliveryDate.getDate()
+    );
+
     return dateOnly >= firstOnly && dateOnly <= lastOnly;
   };
+
+  const mealPlan = useMemo(() => {
+    if (!isMealPackage || !product?.mealStageId) return null;
+    return generateMonthlyMealPlan(product.mealStageId, 2025, 12);
+  }, [isMealPackage, product]);
+
+  const { firstWeekday: mealFirstWeekday, daysInMonth: mealDaysInMonth } =
+    useMemo(() => getMonthMeta(2025, 12), []);
+
+  const mealCells: Array<
+    | { type: "empty"; key: string }
+    | { type: "day"; key: string; dayNumber: number; menus: string[] }
+  > = [];
+
+  for (let i = 0; i < mealFirstWeekday; i += 1) {
+    mealCells.push({ type: "empty", key: `empty-${i}` });
+  }
+
+  for (let day = 1; day <= mealDaysInMonth; day += 1) {
+    const menus = mealPlan?.days[day - 1]?.menus ?? [];
+    mealCells.push({
+      type: "day",
+      key: `day-${day}`,
+      dayNumber: day,
+      menus,
+    });
+  }
 
   if (loading) {
     return (
@@ -350,10 +381,7 @@ export default function ProductDetailPage() {
             상품을 찾을 수 없습니다.
           </div>
           <div className="mt-4 text-center">
-            <Link
-              href="/products"
-              className="text-indigo-600 hover:text-indigo-700"
-            >
+            <Link href="/products" className="text-indigo-600 hover:text-indigo-700">
               상품 목록으로 돌아가기
             </Link>
           </div>
@@ -364,9 +392,8 @@ export default function ProductDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
-      <div className="mx-auto max-w-4xl">
-        {/* Header */}
-        <div className="mb-8">
+      <div className="mx-auto max-w-4xl space-y-6">
+        <div className="mb-2">
           <button
             onClick={() => router.back()}
             className="mb-4 text-sm text-gray-600 hover:text-gray-900"
@@ -379,11 +406,80 @@ export default function ProductDetailPage() {
           )}
         </div>
 
-        {/* 상품 정보 */}
-        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            이용기간 옵션
-          </h2>
+        {isMealPackage && mealPlan && (
+          <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">식단 정보</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  2025년 12월 기준 {product.mealStageId} 식단표입니다.
+                </p>
+              </div>
+              <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
+                2025년 12월 식단표
+              </span>
+            </div>
+
+            <div className="overflow-hidden rounded-lg border border-gray-100">
+              <div className="grid grid-cols-7 border-b border-gray-100 bg-gray-50 text-center text-xs font-medium text-gray-500">
+                {dayLabels.map((label) => (
+                  <div key={label} className="px-2 py-2">
+                    {label}
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-px bg-gray-100">
+                {mealCells.map((cell) =>
+                  cell.type === "empty" ? (
+                    <div
+                      key={cell.key}
+                      className="h-24 bg-white/60"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <div
+                      key={cell.key}
+                      className="flex h-24 flex-col bg-white p-2 text-xs"
+                    >
+                      <div className="mb-1 flex items-center justify-between">
+                        <span className="text-sm font-semibold text-gray-900">
+                          {cell.dayNumber}
+                        </span>
+                      </div>
+                      <ul className="mt-1 space-y-0.5">
+                        {cell.menus.map((menu) => (
+                          <li
+                            key={menu}
+                            className="truncate rounded bg-gray-50 px-1 py-0.5 text-[11px] text-gray-700"
+                            title={menu}
+                          >
+                            {menu}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
+        <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">
+              {isMealPackage ? "이용기간 옵션" : "판매가"}
+            </h2>
+            <span
+              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                isMealPackage
+                  ? "bg-indigo-50 text-indigo-700"
+                  : "bg-emerald-50 text-emerald-700"
+              }`}
+            >
+              {isMealPackage ? "식단 정기배송" : "단품"}
+            </span>
+          </div>
           <div className="space-y-3">
             {product.periodOptions.map((option) => (
               <div
@@ -391,7 +487,7 @@ export default function ProductDetailPage() {
                 className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3"
               >
                 <span className="text-base font-medium text-gray-700">
-                  {option.period}
+                  {isMealPackage ? option.period : "1회"}
                 </span>
                 <span className="text-lg font-bold text-indigo-600">
                   {option.price.toLocaleString()}원
@@ -399,13 +495,10 @@ export default function ProductDetailPage() {
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
-        {/* 추가 정보 */}
-        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            상품 정보
-          </h2>
+        <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">상품 정보</h2>
           <div className="space-y-2 text-sm text-gray-600">
             <div className="flex justify-between">
               <span>상품 ID</span>
@@ -418,9 +511,8 @@ export default function ProductDetailPage() {
               </span>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* 주문하기 버튼 */}
         <div className="flex gap-3">
           <Link
             href="/products"
@@ -437,29 +529,24 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      {/* 바텀 시트 */}
-      {isBottomSheetVisible && (
+      {isMealPackage && isBottomSheetVisible && (
         <>
-          {/* 오버레이 */}
           <div
             className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 ${
               isBottomSheetOpen ? "opacity-100" : "opacity-0"
             }`}
             onClick={handleCloseBottomSheet}
           />
-          
-          {/* 바텀 시트 */}
+
           <div
             className={`fixed inset-x-0 bottom-0 z-50 mx-auto max-w-4xl rounded-t-2xl bg-white shadow-2xl transform transition-transform duration-300 ease-out ${
               isBottomSheetOpen ? "translate-y-0" : "translate-y-full"
             }`}
           >
-            {/* 드래그 핸들 */}
             <div className="flex justify-center pt-3 pb-2">
               <div className="h-1 w-12 rounded-full bg-gray-300" />
             </div>
 
-            {/* 헤더 */}
             <div className="border-b border-gray-200 px-6 py-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900">주문 옵션 선택</h2>
@@ -467,14 +554,23 @@ export default function ProductDetailPage() {
                   onClick={handleCloseBottomSheet}
                   className="text-gray-400 hover:text-gray-600"
                 >
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               </div>
             </div>
 
-            {/* 스텝 인디케이터 */}
             <div className="border-b border-gray-200 px-6 py-4">
               <div className="flex items-center justify-between">
                 {[1, 2, 3, 4].map((step) => (
@@ -491,7 +587,9 @@ export default function ProductDetailPage() {
                       </div>
                       <span
                         className={`ml-2 text-sm font-medium ${
-                          currentStep >= step ? "text-indigo-600" : "text-gray-500"
+                          currentStep >= step
+                            ? "text-indigo-600"
+                            : "text-gray-500"
                         }`}
                       >
                         {step === 1 && "이용기간"}
@@ -502,7 +600,7 @@ export default function ProductDetailPage() {
                     </div>
                     {step < 4 && (
                       <div
-                        className={`h-0.5 flex-1 mx-2 ${
+                        className={`mx-2 h-0.5 flex-1 ${
                           currentStep > step ? "bg-indigo-600" : "bg-gray-200"
                         }`}
                       />
@@ -512,9 +610,7 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
-            {/* 스텝별 컨텐츠 */}
             <div className="max-h-[calc(100vh-200px)] overflow-y-auto px-6 py-6">
-              {/* 1단계: 이용기간 선택 */}
               {currentStep === 1 && (
                 <div>
                   <h3 className="mb-6 text-lg font-semibold text-gray-900">
@@ -526,7 +622,9 @@ export default function ProductDetailPage() {
                         <button
                           key={option.period}
                           type="button"
-                          onClick={() => setSelectedPeriod(option.period)}
+                          onClick={() =>
+                            setSelectedPeriod(option.period as PeriodOption)
+                          }
                           className={`rounded-lg border-2 px-4 py-3 text-sm font-semibold transition ${
                             selectedPeriod === option.period
                               ? "border-indigo-500 bg-indigo-50 text-indigo-700"
@@ -569,7 +667,6 @@ export default function ProductDetailPage() {
                 </div>
               )}
 
-              {/* 2단계: 배송 주기 선택 */}
               {currentStep === 2 && (
                 <div>
                   <h3 className="mb-6 text-lg font-semibold text-gray-900">
@@ -619,16 +716,13 @@ export default function ProductDetailPage() {
                 </div>
               )}
 
-              {/* 3단계: 첫 배송일 선택 */}
               {currentStep === 3 && (
                 <div>
                   <h3 className="mb-6 text-lg font-semibold text-gray-900">
                     첫 배송일을 선택하세요
                   </h3>
 
-                  {/* Calendar */}
                   <div className="calendar">
-                    {/* Week Days */}
                     <div className="mb-2 grid grid-cols-7 gap-1">
                       {weekDays.map((day) => (
                         <div
@@ -640,50 +734,53 @@ export default function ProductDetailPage() {
                       ))}
                     </div>
 
-                    {/* Calendar Days */}
                     <div className="grid grid-cols-7 gap-1">
                       {Array.from({ length: firstDayOfWeek }).map((_, i) => (
                         <div key={`empty-${i}`} className="aspect-square" />
                       ))}
-                      
+
                       {calendarDays.map((date, index) => {
-                        const isSelected = selectedDate && isSameDate(selectedDate, date);
+                        const isSelected =
+                          selectedDate && isSameDate(selectedDate, date);
                         const isDelivery = isDeliveryDate(date);
                         const isToday = isSameDate(date, new Date());
                         const isSelectable = isDateSelectable(date);
                         const sequence = getDeliverySequence(date);
-                        const isFirstDelivery = isFirstDeliveryDate(date);
-                        const isLastDelivery = isLastDeliveryDate(date);
-                        const inDeliveryPeriod = isInDeliveryPeriod(date);
+                        const firstDeliv = isFirstDeliveryDate(date);
+                        const lastDeliv = isLastDeliveryDate(date);
+                        const inPeriod = isInDeliveryPeriod(date);
 
                         let bgClass = "";
                         let cursorClass = "";
                         let borderClass = "";
-                        
+
                         if (!isSelectable) {
                           bgClass = "text-gray-300";
                           cursorClass = "cursor-default";
                           borderClass = "";
                         } else if (isSelected) {
-                          bgClass = "bg-indigo-600 text-white font-semibold";
+                          bgClass =
+                            "bg-indigo-600 text-white font-semibold";
                           cursorClass = "cursor-pointer";
                           borderClass = "";
                         } else if (isToday) {
                           bgClass = "bg-gray-100 text-gray-900 font-medium";
                           cursorClass = "cursor-pointer";
-                          borderClass = "border border-dashed border-gray-300";
+                          borderClass =
+                            "border border-dashed border-gray-300";
                         } else {
                           bgClass = "text-gray-700";
                           cursorClass = "cursor-pointer";
-                          borderClass = "border border-dashed border-gray-300";
+                          borderClass =
+                            "border border-dashed border-gray-300";
                         }
 
                         return (
                           <div key={index} className="relative">
-                            {inDeliveryPeriod && (
-                              <div className="absolute inset-0 bg-indigo-50/30 rounded-lg pointer-events-none" />
+                            {inPeriod && (
+                              <div className="pointer-events-none absolute inset-0 rounded-lg bg-indigo-50/30" />
                             )}
-                            
+
                             <button
                               type="button"
                               onClick={() => handleDateClick(date)}
@@ -692,25 +789,25 @@ export default function ProductDetailPage() {
                             >
                               <div>{date.getDate()}</div>
                               {isDelivery && sequence && (
-                                <div className="absolute top-0.5 right-0.5 text-[10px] font-bold bg-indigo-200 text-indigo-800 rounded px-1">
+                                <div className="absolute right-0.5 top-0.5 rounded bg-indigo-200 px-1 text-[10px] font-bold text-indigo-800">
                                   {sequence}차
                                 </div>
                               )}
                             </button>
-                            {isFirstDelivery && (
-                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-10">
-                                <div className="bg-indigo-600 text-white text-[10px] font-medium px-2 py-1 rounded shadow-lg whitespace-nowrap">
+                            {firstDeliv && (
+                              <div className="absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2">
+                                <div className="whitespace-nowrap rounded bg-indigo-600 px-2 py-1 text-[10px] font-medium text-white shadow-lg">
                                   식단 시작일
                                 </div>
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-indigo-600"></div>
+                                <div className="absolute left-1/2 top-full h-0 w-0 -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-indigo-600" />
                               </div>
                             )}
-                            {isLastDelivery && (
-                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-10">
-                                <div className="bg-indigo-600 text-white text-[10px] font-medium px-2 py-1 rounded shadow-lg whitespace-nowrap">
+                            {lastDeliv && (
+                              <div className="absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2">
+                                <div className="whitespace-nowrap rounded bg-indigo-600 px-2 py-1 text-[10px] font-medium text-white shadow-lg">
                                   식단 마지막 배송일
                                 </div>
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-indigo-600"></div>
+                                <div className="absolute left-1/2 top-full h-0 w-0 -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-indigo-600" />
                               </div>
                             )}
                           </div>
@@ -718,7 +815,6 @@ export default function ProductDetailPage() {
                       })}
                     </div>
 
-                    {/* Legend */}
                     <div className="mt-4 flex flex-wrap gap-4 text-xs text-gray-600">
                       <div className="flex items-center gap-2">
                         <div className="h-4 w-4 rounded bg-indigo-600" />
@@ -729,7 +825,7 @@ export default function ProductDetailPage() {
                         <span>선택 가능 날짜</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="h-4 w-4 rounded bg-indigo-50/30 border border-indigo-200" />
+                        <div className="h-4 w-4 rounded border border-indigo-200 bg-indigo-50/30" />
                         <span>정기배송 기간</span>
                       </div>
                     </div>
@@ -747,7 +843,7 @@ export default function ProductDetailPage() {
                       type="button"
                       onClick={handleNext}
                       disabled={!selectedDate}
-                      className="rounded-lg bg-indigo-600 px-6 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="rounded-lg bg-indigo-600 px-6 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       다음
                     </button>
@@ -755,7 +851,6 @@ export default function ProductDetailPage() {
                 </div>
               )}
 
-              {/* 4단계: 배송 스케줄 및 결제 금액 요약 */}
               {currentStep === 4 && (
                 <div>
                   <h3 className="mb-6 text-lg font-semibold text-gray-900">
@@ -768,7 +863,6 @@ export default function ProductDetailPage() {
                     </div>
                   ) : (
                     <div className="space-y-6">
-                      {/* 주문 요약 */}
                       <div className="rounded-lg bg-indigo-50 p-4">
                         <p className="text-sm font-medium text-indigo-900">
                           주문 요약
@@ -787,7 +881,6 @@ export default function ProductDetailPage() {
                         </p>
                       </div>
 
-                      {/* 마지막 배송예정일 표시 */}
                       {lastDeliveryDate && (
                         <div className="rounded-lg bg-gray-50 p-4">
                           <p className="text-sm font-medium text-gray-900">
@@ -799,7 +892,6 @@ export default function ProductDetailPage() {
                         </div>
                       )}
 
-                      {/* 결제 시도일 */}
                       {paymentAttempts.length > 0 && (
                         <div>
                           <h4 className="mb-3 text-sm font-semibold text-gray-700">
@@ -823,7 +915,6 @@ export default function ProductDetailPage() {
                         </div>
                       )}
 
-                      {/* 배송 스케줄 테이블 */}
                       <div>
                         <h4 className="mb-3 text-sm font-semibold text-gray-700">
                           배송 스케줄 (총 {schedules.length}회)
@@ -865,8 +956,7 @@ export default function ProductDetailPage() {
                         </div>
                       </div>
 
-                      {/* 결제하기 버튼 */}
-                      <div className="mt-6 pt-6 border-t border-gray-200">
+                      <div className="mt-6 border-t border-gray-200 pt-6">
                         <button
                           type="button"
                           onClick={handlePaymentClick}
@@ -881,7 +971,6 @@ export default function ProductDetailPage() {
                         </button>
                       </div>
 
-                      {/* 네비게이션 버튼 */}
                       <div className="mt-4 flex justify-end gap-3">
                         <button
                           type="button"
@@ -902,4 +991,3 @@ export default function ProductDetailPage() {
     </div>
   );
 }
-
