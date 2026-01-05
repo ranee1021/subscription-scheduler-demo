@@ -5,6 +5,10 @@ export interface Product {
   name: string;
   description?: string;
   /**
+   * 상품 대표 이미지 URL (선택)
+   */
+  imageUrl?: string;
+  /**
    * 상품 유형 (식단 정기배송 / 일반 상품)
    */
   kind: ProductKind;
@@ -21,5 +25,4 @@ export interface PeriodOption {
   period: "1주" | "2주" | "4주";
   price: number;
 }
-
 

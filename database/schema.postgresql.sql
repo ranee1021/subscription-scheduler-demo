@@ -106,3 +106,4 @@ CREATE TRIGGER update_delivery_schedules_updated_at BEFORE UPDATE ON delivery_sc
 CREATE TRIGGER update_payment_attempts_updated_at BEFORE UPDATE ON payment_attempts
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+

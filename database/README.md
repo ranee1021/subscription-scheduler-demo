@@ -66,3 +66,4 @@ sqlite3 database.db < schema.sqlite.sql
 - `delivery_schedules.order_id` → `orders.id` (CASCADE DELETE)
 - `payment_attempts.order_id` → `orders.id` (CASCADE DELETE)
 
+

@@ -13,16 +13,13 @@ import { mealMenuProducts } from "../../../src/domain/meal/dummyData";
 const baseServerProducts = [
 
   {
-
     id: "product-1",
-
     name: "초기",
-
     description: "초기 식단 정기배송 상품",
-
     kind: "식단",
-
     mealStageId: "초기",
+    // 대표 이미지 (public/products/product-1.jpg)
+    imageUrl: "/products/product-1.jpg",
 
     periodOptions: [
 
@@ -49,6 +46,9 @@ const baseServerProducts = [
     kind: "식단",
 
     mealStageId: "중기",
+
+    // 대표 이미지 (public/products/product-2.png)
+    imageUrl: "/products/product-2.png",
 
     periodOptions: [
 
@@ -81,6 +81,8 @@ const mealSingleProducts = mealMenuProducts.map((product) => ({
   kind: product.kind,
 
   mealStageId: product.mealStageId,
+
+  imageUrl: product.imageUrl,
 
   periodOptions: product.periodOptions,
 

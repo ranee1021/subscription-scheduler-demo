@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Product } from "../../../src/domain/product/types";
 import Link from "next/link";
+import Image from "next/image";
 import { DeliverySchedule, DeliveryFrequency } from "../../../src/domain/schedule/types";
 import { generateDeliverySchedules } from "../../../src/domain/schedule/generateSchedule";
 import { PaymentAttempt, generatePaymentAttempts } from "../../../src/domain/payment/generatePayment";
@@ -23,6 +24,7 @@ function getMonthMeta(year: number, month: number) {
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const productId = params.id as string;
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,11 +64,6 @@ export default function ProductDetailPage() {
 
     fetchProduct();
   }, [productId]);
-
-  const formatDate = (date: Date): string => {
-    return new Date(date).toLocaleDateString("ko-KR");
-  };
-
   const isMealPackage = product?.kind === "식단";
 
   const periodOptions = useMemo(() => {
@@ -374,6 +371,10 @@ export default function ProductDetailPage() {
   }
 
   if (!product) {
+    const originKind = searchParams.get("kind");
+    const fallbackKind =
+      originKind === "식단" || originKind === "단품" ? originKind : "식단";
+
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-8">
         <div className="mx-auto max-w-4xl">
@@ -381,7 +382,10 @@ export default function ProductDetailPage() {
             상품을 찾을 수 없습니다.
           </div>
           <div className="mt-4 text-center">
-            <Link href="/products" className="text-indigo-600 hover:text-indigo-700">
+            <Link
+              href={`/products?kind=${encodeURIComponent(fallbackKind)}`}
+              className="text-indigo-600 hover:text-indigo-700"
+            >
               상품 목록으로 돌아가기
             </Link>
           </div>
@@ -389,6 +393,9 @@ export default function ProductDetailPage() {
       </div>
     );
   }
+
+  const imageSrc = product.imageUrl ?? "/window.svg";
+  const listKind = isMealPackage ? "식단" : "단품";
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
@@ -400,6 +407,19 @@ export default function ProductDetailPage() {
           >
             ← 뒤로가기
           </button>
+
+          <div className="mb-4 overflow-hidden rounded-xl bg-gray-100">
+            <div className="relative aspect-square w-full">
+              <Image
+                src={imageSrc}
+                alt={product.name}
+                fill
+                className="object-cover"
+                sizes="(min-width: 1024px) 50vw, 100vw"
+              />
+            </div>
+          </div>
+
           <h1 className="text-3xl font-bold text-gray-900">{product.name}</h1>
           {product.description && (
             <p className="mt-2 text-lg text-gray-600">{product.description}</p>
@@ -486,9 +506,11 @@ export default function ProductDetailPage() {
                 key={option.period}
                 className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3"
               >
-                <span className="text-base font-medium text-gray-700">
-                  {isMealPackage ? option.period : "1회"}
-                </span>
+                {isMealPackage && (
+                  <span className="text-base font-medium text-gray-700">
+                    {option.period}
+                  </span>
+                )}
                 <span className="text-lg font-bold text-indigo-600">
                   {option.price.toLocaleString()}원
                 </span>
@@ -504,18 +526,12 @@ export default function ProductDetailPage() {
               <span>상품 ID</span>
               <span className="font-medium text-gray-900">{product.id}</span>
             </div>
-            <div className="flex justify-between">
-              <span>등록일</span>
-              <span className="font-medium text-gray-900">
-                {formatDate(product.createdAt)}
-              </span>
-            </div>
           </div>
         </section>
 
         <div className="flex gap-3">
           <Link
-            href="/products"
+            href={`/products?kind=${encodeURIComponent(listKind)}`}
             className="flex-1 rounded-lg border border-gray-300 bg-white px-6 py-3 text-center text-base font-medium text-gray-700 transition hover:bg-gray-50"
           >
             목록으로

@@ -16,3 +16,4 @@ INSERT INTO product_period_options (product_id, period, price, created_at) VALUE
 ('product-2', '2주', 120080.00, '2024-01-01 00:00:00'),
 ('product-2', '4주', 244720.00, '2024-01-01 00:00:00');
 
+

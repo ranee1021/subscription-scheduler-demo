@@ -83,3 +83,4 @@ CREATE INDEX idx_payment_attempts_order_id ON payment_attempts(order_id);
 CREATE INDEX idx_payment_attempts_attempt_date ON payment_attempts(attempt_date);
 CREATE INDEX idx_payment_attempts_status ON payment_attempts(status);
 
+
