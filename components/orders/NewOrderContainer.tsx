@@ -93,7 +93,8 @@ export function NewOrderContainer() {
         orderForm.setSelectedDate(date);
       }
     }
-  }, [orderParams, orderForm]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderParams]);
 
   const handleNext = () => {
     if (currentStep < 5) {

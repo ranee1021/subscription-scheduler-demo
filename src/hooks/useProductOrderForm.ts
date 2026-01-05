@@ -25,7 +25,8 @@ export function useProductOrderForm(product: Product | null) {
         setSelectedPeriod(periodOptions[0].period as PeriodOption);
       }
     }
-  }, [periodOptions, selectedPeriod]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodOptions]);
 
   const selectedPrice = useMemo(() => {
     return (
