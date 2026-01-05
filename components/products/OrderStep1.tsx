@@ -9,6 +9,8 @@ interface OrderStep1Props {
   dailyPrice: number;
   onPeriodChange: (period: PeriodOption) => void;
   onNext: () => void;
+  showPrevious?: boolean;
+  onPrevious?: () => void;
 }
 
 export function OrderStep1({
