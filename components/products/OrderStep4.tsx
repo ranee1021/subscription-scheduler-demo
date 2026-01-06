@@ -1,5 +1,6 @@
 "use client";
 
+import { Button, StepNavigation, Price } from "@/components/common";
 import { formatDateKorean } from "@/src/utils/date";
 import type { useProductOrderForm } from "@/src/hooks/useProductOrderForm";
 
@@ -47,9 +48,10 @@ export function OrderStep4({
             <p className="mt-1 text-sm text-indigo-700">
               배송 주기: {deliveryFrequency}
             </p>
-            <p className="mt-2 text-lg font-bold text-indigo-700">
-              주문 금액: {selectedPrice.toLocaleString()}원
-            </p>
+            <div className="mt-2">
+              <span className="text-lg font-medium text-indigo-700">주문 금액: </span>
+              <Price amount={selectedPrice} size="lg" className="text-indigo-700" />
+            </div>
           </div>
 
           {lastDeliveryDate && (
@@ -125,28 +127,20 @@ export function OrderStep4({
           </div>
 
           <div className="mt-6 border-t border-gray-200 pt-6">
-            <button
-              type="button"
+            <Button
+              variant="primary"
               onClick={onPaymentClick}
               disabled={!selectedDate || schedules.length === 0}
-              className={`w-full rounded-lg px-4 py-3 text-base font-semibold text-white transition ${
-                !selectedDate || schedules.length === 0
-                  ? "bg-gray-300 cursor-not-allowed"
-                  : "bg-indigo-600 hover:bg-indigo-700"
-              }`}
+              className="w-full px-4 py-3 text-base font-semibold"
             >
               결제하기
-            </button>
+            </Button>
           </div>
 
-          <div className="mt-4 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onPrevious}
-              className="rounded-lg border border-gray-300 bg-white px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
+          <div className="mt-4 flex justify-end">
+            <Button variant="outline" onClick={onPrevious}>
               이전
-            </button>
+            </Button>
           </div>
         </div>
       )}

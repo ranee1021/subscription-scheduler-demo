@@ -3,15 +3,16 @@ import type { Product } from "@/src/domain/product/types";
 import type { DeliveryFrequency } from "@/src/domain/schedule/types";
 import { generateDeliverySchedules } from "@/src/domain/schedule/generateSchedule";
 import { generatePaymentAttempts } from "@/src/domain/payment/generatePayment";
-
-type PeriodOption = "1주" | "2주" | "4주";
+import { PERIOD_OPTIONS, type PeriodOption } from "@/src/constants/order";
 
 export function useProductOrderForm(product: Product | null) {
   const periodOptions = useMemo(() => {
     return product?.periodOptions || [];
   }, [product]);
 
-  const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>("1주");
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>(
+    PERIOD_OPTIONS[0]
+  );
   const [deliveryFrequency, setDeliveryFrequency] =
     useState<DeliveryFrequency>("주3회");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);

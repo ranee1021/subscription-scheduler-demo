@@ -1,5 +1,7 @@
 "use client";
 
+import { StepNavigation } from "@/components/common";
+import { DELIVERY_FREQUENCY_LABELS } from "@/src/constants/order";
 import type { DeliveryFrequency } from "@/src/domain/schedule/types";
 
 interface OrderStep2Props {
@@ -30,7 +32,7 @@ export function OrderStep2({
               : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
           }`}
         >
-          주 3회
+          {DELIVERY_FREQUENCY_LABELS["주3회"]}
         </button>
         <button
           type="button"
@@ -41,26 +43,15 @@ export function OrderStep2({
               : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
           }`}
         >
-          매일 배송(일요일 제외)
+          {DELIVERY_FREQUENCY_LABELS["매일배송"]}
         </button>
       </div>
 
-      <div className="mt-8 flex justify-end gap-3">
-        <button
-          type="button"
-          onClick={onPrevious}
-          className="rounded-lg border border-gray-300 bg-white px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-        >
-          이전
-        </button>
-        <button
-          type="button"
-          onClick={onNext}
-          className="rounded-lg bg-indigo-600 px-6 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-        >
-          다음
-        </button>
-      </div>
+      <StepNavigation
+        onPrevious={onPrevious}
+        onNext={onNext}
+        showPrevious={true}
+      />
     </div>
   );
 }

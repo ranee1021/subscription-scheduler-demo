@@ -7,13 +7,15 @@ import type { Order } from "@/src/domain/order/types";
 import { formatDateInput } from "@/src/utils/date";
 import { useProductOrderForm } from "@/src/hooks/useProductOrderForm";
 import { useDeliveryCalendar } from "@/src/hooks/useDeliveryCalendar";
+import { useToast } from "@/src/hooks/useToast";
+import { Toast } from "@/components/common";
+import type { PeriodOption } from "@/src/constants/order";
 import { NewOrderView } from "./NewOrderView";
-
-type PeriodOption = "1주" | "2주" | "4주";
 type Step = 1 | 2 | 3 | 4 | 5;
 
 export function NewOrderContainer() {
   const router = useRouter();
+  const { toast, showToast, hideToast } = useToast();
   const [currentStep, setCurrentStep] = useState<Step>(1);
   const [productId, setProductId] = useState<string | null>(null);
   const [product, setProduct] = useState<Product | null>(null);
@@ -127,7 +129,7 @@ export function NewOrderContainer() {
 
   const handleCreateOrder = async () => {
     if (!orderForm.selectedDate || orderForm.schedules.length === 0) {
-      alert("첫 배송일을 선택해주세요.");
+      showToast("첫 배송일을 선택해주세요.", "error");
       return;
     }
 
@@ -152,28 +154,39 @@ export function NewOrderContainer() {
       const result = await response.json();
 
       if (result.success) {
-        alert("주문이 완료되었습니다.");
-        router.push(`/orders/${newOrder.id}`);
+        showToast("주문이 완료되었습니다.", "success");
+        setTimeout(() => {
+          router.push(`/orders/${newOrder.id}`);
+        }, 1000);
       } else {
-        alert(`주문 생성 실패: ${result.error}`);
+        showToast(`주문 생성 실패: ${result.error}`, "error");
       }
     } catch (error) {
       console.error("주문 생성 실패:", error);
-      alert("주문 생성 중 오류가 발생했습니다.");
+      showToast("주문 생성 중 오류가 발생했습니다.", "error");
     }
   };
 
   return (
-    <NewOrderView
-      product={product}
-      loading={loading}
-      currentStep={currentStep}
-      calendar={calendar}
-      orderForm={orderForm}
-      onDateClick={handleDateClick}
-      onNext={handleNext}
-      onPrevious={handlePrevious}
-      onCreateOrder={handleCreateOrder}
-    />
+    <>
+      <NewOrderView
+        product={product}
+        loading={loading}
+        currentStep={currentStep}
+        calendar={calendar}
+        orderForm={orderForm}
+        onDateClick={handleDateClick}
+        onNext={handleNext}
+        onPrevious={handlePrevious}
+        onCreateOrder={handleCreateOrder}
+      />
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
+      )}
+    </>
   );
 }

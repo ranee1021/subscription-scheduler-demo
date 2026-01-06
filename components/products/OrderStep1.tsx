@@ -1,6 +1,7 @@
 "use client";
 
-type PeriodOption = "1주" | "2주" | "4주";
+import { StepNavigation, Price } from "@/components/common";
+import type { PeriodOption } from "@/src/constants/order";
 
 interface OrderStep1Props {
   periodOptions: Array<{ period: string; price: number }>;
@@ -42,8 +43,8 @@ export function OrderStep1({
               }`}
             >
               <div>{option.period}</div>
-              <div className="mt-1 text-base">
-                {option.price.toLocaleString()}원
+              <div className="mt-1">
+                <Price amount={option.price} size="md" />
               </div>
             </button>
           ))}
@@ -53,36 +54,23 @@ export function OrderStep1({
       <div className="grid grid-cols-2 gap-4 rounded-lg bg-gray-50 p-4">
         <div>
           <p className="text-xs text-gray-500">판매금액</p>
-          <p className="mt-1 text-lg font-bold text-gray-900">
-            {selectedPrice.toLocaleString()}원
-          </p>
+          <div className="mt-1">
+            <Price amount={selectedPrice} size="lg" />
+          </div>
         </div>
         <div>
           <p className="text-xs text-gray-500">1일 식단(2팩) 단가</p>
-          <p className="mt-1 text-lg font-bold text-indigo-600">
-            {dailyPrice.toLocaleString()}원
-          </p>
+          <div className="mt-1">
+            <Price amount={dailyPrice} size="lg" className="text-indigo-600" />
+          </div>
         </div>
       </div>
 
-      <div className="mt-8 flex justify-end gap-3">
-        {showPrevious && onPrevious && (
-          <button
-            type="button"
-            onClick={onPrevious}
-            className="rounded-lg border border-gray-300 bg-white px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            이전
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={onNext}
-          className="rounded-lg bg-indigo-600 px-6 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-        >
-          다음
-        </button>
-      </div>
+      <StepNavigation
+        onPrevious={onPrevious}
+        onNext={onNext}
+        showPrevious={showPrevious}
+      />
     </div>
   );
 }

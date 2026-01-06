@@ -1,5 +1,6 @@
 "use client";
 
+import { Button, StepNavigation, Price } from "@/components/common";
 import type { Product } from "@/src/domain/product/types";
 import type { useProductOrderForm } from "@/src/hooks/useProductOrderForm";
 import { formatDateKorean } from "@/src/utils/date";
@@ -33,9 +34,10 @@ export function OrderStep5({
             <p className="text-sm text-gray-700">
               첫 배송일: {formatDateKorean(selectedDate)}
             </p>
-            <p className="mt-2 text-base font-bold text-gray-900">
-              결제 금액: {selectedPrice.toLocaleString()}원
-            </p>
+            <div className="mt-2">
+              <span className="text-base font-medium text-gray-700">결제 금액: </span>
+              <Price amount={selectedPrice} size="lg" />
+            </div>
           </div>
         )}
 
@@ -46,28 +48,20 @@ export function OrderStep5({
         </div>
 
         <div className="mt-6 pt-6 border-t border-gray-200">
-          <button
-            type="button"
+          <Button
+            variant="primary"
             onClick={onCreateOrder}
             disabled={!selectedDate || schedules.length === 0}
-            className={`w-full rounded-lg px-4 py-3 text-base font-semibold text-white transition ${
-              !selectedDate || schedules.length === 0
-                ? "bg-gray-300 cursor-not-allowed"
-                : "bg-indigo-600 hover:bg-indigo-700"
-            }`}
+            className="w-full px-4 py-3 text-base font-semibold"
           >
             주문 완료
-          </button>
+          </Button>
         </div>
 
-        <div className="mt-4 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onPrevious}
-            className="rounded-lg border border-gray-300 bg-white px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
+        <div className="mt-4 flex justify-end">
+          <Button variant="outline" onClick={onPrevious}>
             이전
-          </button>
+          </Button>
         </div>
       </div>
     </div>

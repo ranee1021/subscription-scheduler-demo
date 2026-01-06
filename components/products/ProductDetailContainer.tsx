@@ -7,10 +7,9 @@ import { useProduct } from "@/src/hooks/useProduct";
 import { useProductOrderForm } from "@/src/hooks/useProductOrderForm";
 import { useDeliveryCalendar } from "@/src/hooks/useDeliveryCalendar";
 import { formatDateInput } from "@/src/utils/date";
+import type { PeriodOption } from "@/src/constants/order";
 import { ProductDetailView } from "./ProductDetailView";
 import { OrderBottomSheet } from "./OrderBottomSheet";
-
-type PeriodOption = "1주" | "2주" | "4주";
 
 export function ProductDetailContainer() {
   const params = useParams();

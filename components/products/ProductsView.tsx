@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
+import { ProductImage, Price, Badge, EmptyState, LoadingSpinner } from "@/components/common";
 import type { Product } from "@/src/domain/product/types";
 
 interface ProductsViewProps {
@@ -62,15 +62,16 @@ export function ProductsView({
         </div>
 
         {loading ? (
-          <div className="flex h-64 items-center justify-center text-sm text-gray-400">
-            로딩 중...
-          </div>
+          <LoadingSpinner />
         ) : filteredProducts.length === 0 ? (
-          <div className="flex h-64 items-center justify-center text-sm text-gray-400">
-            {activeKind === "식단"
-              ? "등록된 식단 상품이 없습니다."
-              : "등록된 단품 상품이 없습니다."}
-          </div>
+          <EmptyState
+            title={
+              activeKind === "식단"
+                ? "등록된 식단 상품이 없습니다."
+                : "등록된 단품 상품이 없습니다."
+            }
+            description="새로운 상품이 등록되면 여기에 표시됩니다."
+          />
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredProducts.map((product) => (
@@ -90,7 +91,6 @@ interface ProductCardProps {
 
 function ProductCard({ product, activeKind }: ProductCardProps) {
   const isMealPackage = product.kind === "식단";
-  const imageSrc = product.imageUrl ?? "/window.svg";
 
   const handleClick = () => {
     if (typeof window === "undefined") return;
@@ -107,27 +107,20 @@ function ProductCard({ product, activeKind }: ProductCardProps) {
       className="block overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:border-indigo-300 hover:shadow-md"
     >
       <div className="relative aspect-square w-full bg-gray-100">
-        <Image
-          src={imageSrc}
+        <ProductImage
+          src={product.imageUrl}
           alt={product.name}
           fill
           className="object-cover"
-          sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
         />
       </div>
 
       <div className="p-6">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">{product.name}</h2>
-          <span
-            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-              isMealPackage
-                ? "bg-indigo-50 text-indigo-700"
-                : "bg-emerald-50 text-emerald-700"
-            }`}
-          >
+          <Badge variant={isMealPackage ? "info" : "success"}>
             {isMealPackage ? "식단 정기배송" : "단품"}
-          </span>
+          </Badge>
         </div>
 
         {product.description && (
@@ -149,9 +142,7 @@ function ProductCard({ product, activeKind }: ProductCardProps) {
                     {option.period}
                   </span>
                 )}
-                <span className="text-sm font-bold text-indigo-600">
-                  {option.price.toLocaleString()}원
-                </span>
+                <Price amount={option.price} size="sm" />
               </div>
             ))}
           </div>

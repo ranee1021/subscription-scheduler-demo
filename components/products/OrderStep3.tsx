@@ -1,5 +1,6 @@
 "use client";
 
+import { StepNavigation } from "@/components/common";
 import { DeliveryCalendar } from "./DeliveryCalendar";
 import type { useDeliveryCalendar } from "@/src/hooks/useDeliveryCalendar";
 import type { useProductOrderForm } from "@/src/hooks/useProductOrderForm";
@@ -31,23 +32,12 @@ export function OrderStep3({
         onDateClick={onDateClick}
       />
 
-      <div className="mt-8 flex justify-end gap-3">
-        <button
-          type="button"
-          onClick={onPrevious}
-          className="rounded-lg border border-gray-300 bg-white px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-        >
-          이전
-        </button>
-        <button
-          type="button"
-          onClick={onNext}
-          disabled={!orderForm.selectedDate}
-          className="rounded-lg bg-indigo-600 px-6 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          다음
-        </button>
-      </div>
+      <StepNavigation
+        onPrevious={onPrevious}
+        onNext={onNext}
+        showPrevious={true}
+        nextDisabled={!orderForm.selectedDate}
+      />
     </div>
   );
 }
